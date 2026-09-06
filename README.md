@@ -1,8 +1,21 @@
-# React + TypeScript + Vite
+# MyMovieGallery
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+MyMovieGallery is a cinematic React + TypeScript movie-tracking experience. The current release includes a responsive gallery, dashboard, watchlist, reviews, analytics, recommendations, themes, authentication flows, and persisted demo state in the browser.
 
-Currently, two official plugins are available:
+Run the backend locally after installing `backend/requirements.txt`:
+
+```bash
+cd backend
+uvicorn app.main:app --reload
+```
+
+## Deployment
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the complete Vercel, Netlify, Render, and GitHub setup instructions.
+
+## License
+
+MIT
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)

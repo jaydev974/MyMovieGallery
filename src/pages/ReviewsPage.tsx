@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMovieStore } from '../store/movieStore';
 import { useAuthStore } from '../store/authStore';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../components/ui/useToast';
 import { MOCK_REVIEWS } from '../utils/mockData';
 import { pageVariants, pageTransition, staggerContainer, staggerItem } from '../animations/variants';
 import { formatDateShort, getRatingColor } from '../utils/formatters';

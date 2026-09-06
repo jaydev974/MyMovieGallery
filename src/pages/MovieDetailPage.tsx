@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeftIcon, HeartIcon, BookmarkIcon, ClockIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
 import { useMovieStore } from '../store/movieStore';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../components/ui/useToast';
 import RatingStars from '../components/ui/RatingStars';
 import MovieCarousel from '../components/ui/MovieCarousel';
 import { formatRuntime, formatMoney, getRatingColor, GENRE_COLORS } from '../utils/formatters';

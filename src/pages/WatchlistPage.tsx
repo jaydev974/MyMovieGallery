@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useMovieStore } from '../store/movieStore';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../components/ui/useToast';
 import { pageVariants, pageTransition, staggerContainer, staggerItem } from '../animations/variants';
 import { GENRE_COLORS } from '../utils/formatters';
 import { Link } from 'react-router-dom';

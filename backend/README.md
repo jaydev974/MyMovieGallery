@@ -19,7 +19,7 @@ This backend package contains the production-grade PostgreSQL architecture, SQLA
    createdb mymoviegallery
    ```
 
-2. Update the `DATABASE_URL` in `app/db/session.py` if needed.
+2. Set the `DATABASE_URL` environment variable if the database is not local.
 
 3. Run Alembic migrations:
 
@@ -27,15 +27,12 @@ This backend package contains the production-grade PostgreSQL architecture, SQLA
    alembic upgrade head
    ```
 
-4. Seed reference data:
+4. Start the health-check API:
 
    ```bash
-   python -c "import asyncio; from app.db.session import AsyncSessionLocal; from app.seed_data import seed_reference_data; async def main():
-       async with AsyncSessionLocal() as session:
-           await seed_reference_data(session)
-   asyncio.run(main())"
+      uvicorn app.main:app --reload
    ```
 
 ## Notes
 
-This corresponds to the enterprise SaaS database specification you supplied and is ready for extension into repositories, services, schemas, and API routes.
+The schema is ready for extension into repositories, services, schemas, and API routes. The frontend currently uses local mock data until those API routes are implemented.

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../components/ui/useToast';
 import { themes } from '../themes/themes';
 import { pageVariants, pageTransition, staggerItem } from '../animations/variants';
 import type { ThemeName } from '../types';

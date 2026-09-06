@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { HeartIcon, BookmarkIcon, StarIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
 import { useMovieStore } from '../../store/movieStore';
-import { useToast } from './Toast';
+import { useToast } from './useToast';
 import { formatRuntime, getRatingColor, GENRE_COLORS } from '../../utils/formatters';
 import type { Movie } from '../../types';
 

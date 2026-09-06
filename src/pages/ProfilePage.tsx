@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { useMovieStore } from '../store/movieStore';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../components/ui/useToast';
 import { pageVariants, pageTransition, staggerContainer, staggerItem } from '../animations/variants';
 import { formatDate, getInitials } from '../utils/formatters';
 import { PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
