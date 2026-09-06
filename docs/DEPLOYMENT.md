@@ -33,6 +33,19 @@ The backend is a separate FastAPI service. It currently exposes `/health` and co
 
 Before connecting a production frontend, replace the localhost CORS origin in `backend/app/main.py` with the deployed frontend origin and move it to an environment variable.
 
+## Docker deployment
+
+Install Docker Desktop, start it, then run from the repository root:
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+The frontend is available at `http://localhost:8080`, the backend health endpoint at `http://localhost:8000/health`, and PostgreSQL is available only inside the Compose network. View logs with `docker compose logs -f`; stop containers with `docker compose down`.
+
+For a server deployment, copy the repository to the server, install Docker Engine and the Compose plugin, change the default database password and CORS origin in the Compose environment, then run the same commands. Put HTTPS and a domain in front of the frontend container with a reverse proxy such as Caddy or Traefik.
+
 ## GitHub push
 
 From the repository root:

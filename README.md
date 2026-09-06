@@ -13,6 +13,16 @@ uvicorn app.main:app --reload
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the complete Vercel, Netlify, Render, and GitHub setup instructions.
 
+## Docker
+
+With Docker Desktop running, start the frontend, backend, and PostgreSQL database together:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8080` for the app and `http://localhost:8000/health` for the API. Stop the stack with `docker compose down`; add `-v` only when you also want to delete the database volume.
+
 ## License
 
 MIT
