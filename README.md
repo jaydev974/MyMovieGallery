@@ -10,6 +10,8 @@ Backend, from the repository root:
 
 ```bash
 cd backend
+copy .env.example .env
+# Set OMDB_API_KEY in backend/.env
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload
@@ -26,6 +28,17 @@ npm run dev
 Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
 ## Deployment
+
+## Profiles and metadata
+
+Accounts can be public or private. Public profiles are available at `/users/:username`; private profiles disclose no library activity to other visitors. Set `OMDB_API_KEY` in `backend/.env` for local development, or in the root `.env` used by Docker Compose, to enable the server-side `GET /api/metadata/omdb/search?query=...` metadata lookup. The key is intentionally never sent to the browser.
+
+The focused API routers live in `backend/app/api/`:
+
+- `profiles.py` owns public profile and watched-history access rules.
+- `metadata.py` owns external movie metadata providers such as OMDb.
+
+With the backend running, search from the app's Search page or call `GET http://localhost:8000/api/metadata/omdb/search?query=inception`. The endpoint forwards the query and `OMDB_API_KEY` to OMDb. Supply a JWT `Authorization: Bearer <token>` header when the viewer needs owner-only access to a private profile.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the complete Vercel, Netlify, Render, and GitHub setup instructions.
 

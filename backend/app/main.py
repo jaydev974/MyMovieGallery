@@ -1,11 +1,17 @@
 import os
 from functools import lru_cache
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+# Load backend/.env for direct uvicorn runs; Docker Compose injects environment variables itself.
+load_dotenv()
+
 from app.auth import router as auth_router
+from app.api.metadata import router as metadata_router
+from app.api.profiles import router as profiles_router
 from app.library import router as library_router
 from app.recommendations import RecommendationModel
 
@@ -45,6 +51,8 @@ app.add_middleware(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.include_router(auth_router)
 app.include_router(library_router)
+app.include_router(profiles_router)
+app.include_router(metadata_router)
 
 
 @app.get("/health", tags=["system"])

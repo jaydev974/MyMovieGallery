@@ -40,6 +40,18 @@ This backend package contains the SQLAlchemy 2.0 models, Alembic migrations, Pos
    curl "http://localhost:8000/api/recommendations?title=Inception&limit=5"
    ```
 
+## OMDb metadata search
+
+1. Copy `.env.example` to `.env` inside `backend/` and set `OMDB_API_KEY` to your OMDb key.
+2. Start the backend with `uvicorn app.main:app --reload`.
+3. Search through the server-side proxy:
+
+   ```bash
+   curl "http://localhost:8000/api/metadata/omdb/search?query=Inception"
+   ```
+
+The frontend Search page calls the same endpoint. The OMDb key is added to the outbound request by the backend and is never exposed to the browser. For Docker Compose, set `OMDB_API_KEY` in the root `.env` file instead.
+
 ## Notes
 
 The recommendation model currently uses TF-IDF vectors over movie titles, genres, and overviews. It is a content-based model; collaborative filtering requires real user ratings and will be added once those records are persisted through the API.

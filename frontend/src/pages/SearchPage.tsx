@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
@@ -8,6 +8,9 @@ import { useDebounce } from '../hooks';
 import { pageVariants, pageTransition, staggerContainer, staggerItem } from '../animations/variants';
 import { ALL_GENRES } from '../utils/mockData';
 import { GENRE_COLORS } from '../utils/formatters';
+import { api } from '../api/client';
+
+interface OmdbResult { imdb_id: string; title: string; year: string; poster: string }
 
 export default function SearchPage() {
   const [params] = useSearchParams();
@@ -15,6 +18,14 @@ export default function SearchPage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const { movies } = useMovieStore();
   const dq = useDebounce(query, 300);
+  const [omdbResults, setOmdbResults] = useState<OmdbResult[]>([]);
+
+  useEffect(() => {
+    if (dq.length < 2) { setOmdbResults([]); return; }
+    api.get<{ results: OmdbResult[] }>(`/api/metadata/omdb/search?query=${encodeURIComponent(dq)}`)
+      .then((response) => setOmdbResults(response.results))
+      .catch(() => setOmdbResults([])); // Catalog search remains useful if OMDb is not configured.
+  }, [dq]);
 
   const results = useMemo(() => {
     if (!dq && selectedGenres.length === 0) return [];
@@ -93,7 +104,15 @@ export default function SearchPage() {
                   </motion.div>
                 ))}
               </motion.div>
+              {omdbResults.length > 0 && (
+                <div className="mt-10"><h2 className="font-bold mb-3" style={{ color: 'var(--text)' }}>More results from OMDb</h2><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">{omdbResults.map((movie) => <a key={movie.imdb_id} href={`https://www.imdb.com/title/${movie.imdb_id}/`} target="_blank" rel="noreferrer" className="glass-card p-3 no-underline"><p className="font-bold text-sm" style={{ color: 'var(--text)' }}>{movie.title}</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{movie.year}</p></a>)}</div></div>
+              )}
             </>
+          ) : omdbResults.length > 0 ? (
+            <div>
+              <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>No matching movies in your gallery. Results from OMDb:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">{omdbResults.map((movie) => <a key={movie.imdb_id} href={`https://www.imdb.com/title/${movie.imdb_id}/`} target="_blank" rel="noreferrer" className="glass-card p-3 no-underline"><p className="font-bold text-sm" style={{ color: 'var(--text)' }}>{movie.title}</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{movie.year}</p></a>)}</div>
+            </div>
           ) : (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">🎭</div>
