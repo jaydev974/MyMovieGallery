@@ -1,0 +1,14 @@
+[
+  {"id": 1, "title": "Inception", "year": 2010, "genres": ["science fiction", "action", "thriller"], "overview": "A thief enters dreams to steal secrets and plant an idea."},
+  {"id": 2, "title": "The Dark Knight", "year": 2008, "genres": ["action", "crime", "drama"], "overview": "A masked hero faces a criminal mastermind who creates chaos in Gotham."},
+  {"id": 3, "title": "Interstellar", "year": 2014, "genres": ["science fiction", "drama", "adventure"], "overview": "Explorers travel through a wormhole to find a future for humanity."},
+  {"id": 4, "title": "The Matrix", "year": 1999, "genres": ["science fiction", "action", "thriller"], "overview": "A hacker discovers that reality is an artificial simulation and joins a rebellion."},
+  {"id": 5, "title": "Blade Runner 2049", "year": 2017, "genres": ["science fiction", "drama", "mystery"], "overview": "A young blade runner uncovers a secret that leads him to a former officer."},
+  {"id": 6, "title": "Arrival", "year": 2016, "genres": ["science fiction", "drama", "mystery"], "overview": "A linguist works with visitors from space to understand their language and purpose."},
+  {"id": 7, "title": "The Lord of the Rings", "year": 2001, "genres": ["fantasy", "adventure", "drama"], "overview": "A fellowship begins a dangerous journey to destroy a powerful ring."},
+  {"id": 8, "title": "The Martian", "year": 2015, "genres": ["science fiction", "adventure", "drama"], "overview": "An astronaut stranded on Mars uses science and ingenuity to survive."},
+  {"id": 9, "title": "Mad Max Fury Road", "year": 2015, "genres": ["action", "adventure", "science fiction"], "overview": "Survivors race across a wasteland while escaping a ruthless tyrant."},
+  {"id": 10, "title": "Dune", "year": 2021, "genres": ["science fiction", "adventure", "drama"], "overview": "A gifted heir travels to a dangerous desert world and becomes part of a vast struggle."},
+  {"id": 11, "title": "Parasite", "year": 2019, "genres": ["thriller", "drama", "comedy"], "overview": "A struggling family becomes entangled with a wealthy household through a dangerous scheme."},
+  {"id": 12, "title": "The Grand Budapest Hotel", "year": 2014, "genres": ["comedy", "drama", "adventure"], "overview": "A concierge and his lobby boy become involved in a stolen painting and an inheritance dispute."}
+]

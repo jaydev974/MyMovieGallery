@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useMovieStore } from '../store/movieStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../components/ui/useToast';
-import { MOCK_REVIEWS } from '../utils/mockData';
 import { pageVariants, pageTransition, staggerContainer, staggerItem } from '../animations/variants';
 import { formatDateShort, getRatingColor } from '../utils/formatters';
 import { HeartIcon } from '@heroicons/react/24/outline';
@@ -18,10 +17,10 @@ export default function ReviewsPage() {
   const [showForm, setShowForm] = useState(false);
   const [newReview, setNewReview] = useState({ movieId: 0, rating: 8, title: '', content: '', containsSpoilers: false });
 
-  const allReviews = [...MOCK_REVIEWS, ...reviews];
+  const allReviews = reviews;
   const displayReviews = filter === 'mine' ? allReviews.filter((r) => r.userId === user?.id) : allReviews;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!newReview.movieId || !newReview.title || !newReview.content) return;
     const review: Review = {
@@ -37,10 +36,14 @@ export default function ReviewsPage() {
       containsSpoilers: newReview.containsSpoilers,
       tags: [],
     };
-    addReview(review);
-    toast.success('Review published! 🎬');
-    setShowForm(false);
-    setNewReview({ movieId: 0, rating: 8, title: '', content: '', containsSpoilers: false });
+    try {
+      await addReview(review);
+      toast.success('Review published! 🎬');
+      setShowForm(false);
+      setNewReview({ movieId: 0, rating: 8, title: '', content: '', containsSpoilers: false });
+    } catch (error) {
+      toast.error('Review failed', error instanceof Error ? error.message : 'Unable to publish review');
+    }
   }
 
   return (

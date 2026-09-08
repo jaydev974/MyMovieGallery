@@ -1,6 +1,6 @@
 # MyMovieGallery Backend
 
-This backend package contains the production-grade PostgreSQL architecture, SQLAlchemy 2.0 models, Alembic migration scaffolding, and seed data for the MyMovieGallery product.
+This backend package contains the SQLAlchemy 2.0 models, Alembic migrations, PostgreSQL runtime, and a trainable content-based recommendation service for MyMovieGallery.
 
 ## Included
 
@@ -9,17 +9,24 @@ This backend package contains the production-grade PostgreSQL architecture, SQLA
 - base model in `app/db/base.py`
 - Alembic migration baseline in `alembic/versions/20260905_initial_schema.py`
 - seed references in `app/seed_data.py`
+- recommendation inference in `app/recommendations.py`
+- recommendation training data in `data/movies.json`
+- recommendation trainer in `scripts/train_recommender.py`
 - architecture documentation in `docs/database_design.md`
 
 ## Quick start
 
-1. Create the PostgreSQL 17 database:
+1. Start the PostgreSQL database and backend from the repository root:
 
    ```bash
-   createdb mymoviegallery
+   docker compose up -d db backend
    ```
 
-2. Set the `DATABASE_URL` environment variable if the database is not local.
+2. Train or retrain the recommendation model:
+
+   ```bash
+   python scripts/train_recommender.py
+   ```
 
 3. Run Alembic migrations:
 
@@ -27,12 +34,28 @@ This backend package contains the production-grade PostgreSQL architecture, SQLA
    alembic upgrade head
    ```
 
-4. Start the health-check API:
+4. Query recommendations from the trained model:
 
    ```bash
-      uvicorn app.main:app --reload
+   curl "http://localhost:8000/api/recommendations?title=Inception&limit=5"
    ```
 
 ## Notes
 
-The schema is ready for extension into repositories, services, schemas, and API routes. The frontend currently uses local mock data until those API routes are implemented.
+The recommendation model currently uses TF-IDF vectors over movie titles, genres, and overviews. It is a content-based model; collaborative filtering requires real user ratings and will be added once those records are persisted through the API.
+
+For production, set `ENVIRONMENT=production`, provide an explicit `ALLOWED_HOSTS` and `CORS_ORIGINS`, use a long random database password, and run the backend behind Gunicorn using `docker-compose.production.yml`.
+
+## Core API
+
+All protected routes use `Authorization: Bearer <access_token>` from `/api/auth/login` or `/api/auth/register`.
+
+- `GET /api/movies` and `GET /api/movies/{id}` - catalog reads with search, genre, pagination, and details
+- `POST/DELETE /api/movies/{id}/watchlist` - manage the authenticated user's watchlist
+- `POST/DELETE /api/movies/{id}/favorite` - manage favorites
+- `PUT /api/movies/{id}/rating` - create or update a 1-10 rating
+- `POST /api/movies/{id}/watched` - record completed viewing history
+- `GET /api/library` - aggregate watchlist, favorites, watched, and rated movies
+- `GET /api/reviews` - list published reviews
+- `POST /api/movies/{id}/reviews` - create a review
+- `PUT/DELETE /api/reviews/{id}` - update or soft-delete the authenticated user's review

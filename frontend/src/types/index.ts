@@ -10,6 +10,7 @@ export interface CastMember {
 
 export interface Movie {
   id: number;
+  backendId?: string;
   title: string;
   year: number;
   genre: string[];
@@ -77,6 +78,7 @@ export interface Achievement {
 export interface Review {
   id: string;
   movieId: number;
+  backendMovieId?: string;
   userId: string;
   userName: string;
   userAvatar?: string;

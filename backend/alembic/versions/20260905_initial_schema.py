@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
+
+
+class _GenericTypes:
+    UUID = sa.Uuid
+
+
+postgresql = _GenericTypes()
 
 # revision identifiers, used by Alembic.
 revision = "20260905_initial_schema"

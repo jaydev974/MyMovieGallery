@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMovieStore } from '../store/movieStore';
 import MovieCard from '../components/ui/MovieCard';
@@ -55,7 +56,50 @@ function getRecommendations(movies: Movie[], watched: Movie[]): RecommendedMovie
 export default function RecommendationsPage() {
   const { movies, getWatchedMovies } = useMovieStore();
   const watched = getWatchedMovies();
-  const recommendations = getRecommendations(movies, watched);
+  const watchedKey = watched.map((movie) => movie.id).join(',');
+  const [recommendations, setRecommendations] = useState<RecommendedMovie[]>(() => getRecommendations(movies, watched));
+
+  useEffect(() => {
+    const sourceMovie = watched[0];
+    if (!sourceMovie) {
+      setRecommendations([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadRecommendations = async () => {
+      try {
+        const response = await fetch(
+          `/api/recommendations?title=${encodeURIComponent(sourceMovie.title)}&limit=20`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) throw new Error('Recommendation service unavailable');
+        const payload = await response.json() as {
+          results: Array<{ title: string; score: number; reason: string }>;
+        };
+        const localMoviesByTitle = new Map(movies.map((movie) => [movie.title, movie]));
+        const apiRecommendations = payload.results.flatMap((result) => {
+          const movie = localMoviesByTitle.get(result.title);
+          if (!movie) return [];
+          const confidence = Math.round(result.score * 100);
+          return [{
+            movie,
+            confidence,
+            similarity: confidence,
+            reasons: [{ type: 'model', label: result.reason }],
+            genreOverlap: movie.genre.filter((genre) => sourceMovie.genre.includes(genre)),
+          }];
+        });
+        setRecommendations(apiRecommendations);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setRecommendations(getRecommendations(movies, watched));
+      }
+    };
+
+    void loadRecommendations();
+    return () => controller.abort();
+  }, [movies, watchedKey]);
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={pageTransition}

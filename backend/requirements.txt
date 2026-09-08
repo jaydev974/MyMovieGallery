@@ -9,6 +9,8 @@ sqlalchemy[asyncio]==2.0.41
 asyncpg==0.30.0
 alembic==1.15.2
 aiosqlite==0.21.0
+joblib==1.4.2
+scikit-learn==1.6.1
 
 # ─── Validation & Serialization ─────────────────────────────────────────────────
 pydantic==2.11.3

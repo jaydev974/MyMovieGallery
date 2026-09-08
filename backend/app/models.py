@@ -5,7 +5,6 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import (
-    ARRAY,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -17,10 +16,14 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Uuid,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
+from sqlalchemy.types import JSON
+
+UUID = Uuid
+JSONB = JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -115,6 +118,8 @@ class User(Base, AuditMixin):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(180), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=True)
@@ -282,7 +287,7 @@ class Movie(Base, AuditMixin):
     language_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     original_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
-    metadata: Mapped[MovieMetadata | None] = relationship(back_populates="movie")
+    movie_metadata: Mapped[MovieMetadata | None] = relationship(back_populates="movie")
     genres: Mapped[list[MovieGenre]] = relationship(back_populates="movie")
     keywords: Mapped[list[MovieKeyword]] = relationship(back_populates="movie")
     images: Mapped[list[MovieImage]] = relationship(back_populates="movie")
@@ -296,11 +301,14 @@ class Movie(Base, AuditMixin):
     watch_history: Mapped[list[WatchHistory]] = relationship(back_populates="movie")
     favorites: Mapped[list[Favorite]] = relationship(back_populates="movie")
     collection_movies: Mapped[list[CollectionMovie]] = relationship(back_populates="movie")
-    similarities: Mapped[list[MovieSimilarity]] = relationship(back_populates="movie")
+    similarities: Mapped[list[MovieSimilarity]] = relationship(
+        back_populates="movie",
+        foreign_keys="MovieSimilarity.movie_id",
+    )
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="movie")
 
     __table_args__ = (
-        Index("ix_movies_title_trgm", "title", postgresql_using="gin"),
+        Index("ix_movies_title_trgm", "title"),
         Index("ix_movies_release_date", "release_date"),
     )
 
@@ -323,7 +331,7 @@ class MovieMetadata(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    movie: Mapped[Movie] = relationship(back_populates="metadata")
+    movie: Mapped[Movie] = relationship(back_populates="movie_metadata")
 
 
 class MovieImage(Base):

@@ -1,7 +1,7 @@
 services:
   frontend:
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "8080:80"
@@ -14,8 +14,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/mymoviegallery
+      DATABASE_URL: postgresql+asyncpg://mymoviegallery:mymoviegallery@db:5432/mymoviegallery
       CORS_ORIGINS: http://localhost:8080
+      JWT_SECRET_KEY: local-compose-jwt-secret-change-me
     ports:
       - "8000:8000"
     depends_on:
@@ -29,15 +30,15 @@ services:
       retries: 5
 
   db:
-    image: postgres:17-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: mymoviegallery
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: mymoviegallery
+      POSTGRES_PASSWORD: mymoviegallery
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d mymoviegallery"]
+      test: ["CMD-SHELL", "pg_isready -U mymoviegallery -d mymoviegallery"]
       interval: 5s
       timeout: 5s
       retries: 10
