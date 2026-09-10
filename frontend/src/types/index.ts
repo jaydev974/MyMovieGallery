@@ -58,6 +58,7 @@ export interface User {
   joinedDate: string;
   location?: string;
   isPrivate: boolean;
+  isVerified?: boolean;
   website?: string;
   achievements: Achievement[];
   watchStreak: number;
