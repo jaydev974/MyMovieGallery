@@ -12,6 +12,7 @@ const LandingPage = React.lazy(() => import('../pages/LandingPage'));
 const LoginPage = React.lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = React.lazy(() => import('../pages/auth/RegisterPage'));
 const ForgotPasswordPage = React.lazy(() => import('../pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('../pages/auth/ResetPasswordPage'));
 const DashboardPage = React.lazy(() => import('../pages/DashboardPage'));
 const MovieGalleryPage = React.lazy(() => import('../pages/MovieGalleryPage'));
 const MovieDetailPage = React.lazy(() => import('../pages/MovieDetailPage'));
@@ -52,6 +53,7 @@ export default function AppRoutes() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         {/* Protected App Routes */}
