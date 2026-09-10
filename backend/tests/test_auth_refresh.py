@@ -10,12 +10,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.auth import REFRESH_TOKEN_COOKIE_NAME, get_current_user
+from app.auth import REFRESH_TOKEN_COOKIE_NAME, pwd_context
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import User
-from app.auth import pwd_context
 
 
 @pytest.fixture()
@@ -52,7 +51,6 @@ def client() -> Iterator[TestClient]:
 
         asyncio.run(setup_database())
         app.dependency_overrides[get_db] = override_get_db
-        app.dependency_overrides[get_current_user] = get_current_user
 
         with TestClient(app) as test_client:
             yield test_client
