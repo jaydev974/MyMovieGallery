@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import type { User } from '../types';
 import { api } from '../api/client';
 
@@ -58,6 +58,34 @@ function mapApiUser(apiUser: AuthResponse['user']): User {
   };
 }
 
+const authStorage: StateStorage = {
+  getItem: (name: string) => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(name) ?? sessionStorage.getItem(name);
+  },
+  setItem: (name: string, value: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const parsed = JSON.parse(value) as { state?: { rememberMe?: boolean } } | null;
+      if (parsed?.state?.rememberMe) {
+        localStorage.setItem(name, value);
+        sessionStorage.removeItem(name);
+      } else {
+        sessionStorage.setItem(name, value);
+        localStorage.removeItem(name);
+      }
+    } catch {
+      sessionStorage.setItem(name, value);
+      localStorage.removeItem(name);
+    }
+  },
+  removeItem: (name: string) => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(name);
+    sessionStorage.removeItem(name);
+  },
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -107,7 +135,7 @@ export const useAuthStore = create<AuthState>()(
       register: async (name: string, email: string, password: string, isPrivate = false, rememberMe = false) => {
         set({ isLoading: true });
         try {
-          const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password, is_private: isPrivate }, { suppressAuthExpired: true });
+          const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password, is_private: isPrivate, remember_me: rememberMe }, { suppressAuthExpired: true });
           set({ token: response.access_token, user: mapApiUser(response.user), rememberMe, isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
@@ -153,7 +181,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'mmg-auth-v3',
-      version: 4,
+      version: 5,
+      storage: createJSONStorage(() => authStorage),
       partialize: (state) => ({
         rememberMe: state.rememberMe,
         token: state.rememberMe ? state.token : null,
@@ -165,8 +194,8 @@ export const useAuthStore = create<AuthState>()(
         return {
           rememberMe,
           token: rememberMe ? state.token ?? null : null,
-          user: null,
-          isAuthenticated: false,
+          user: state.user ? { ...state.user, isVerified: state.user.isVerified ?? false } : null,
+          isAuthenticated: Boolean(state.token && state.user),
           isLoading: false,
         } satisfies Partial<AuthState>;
       },
