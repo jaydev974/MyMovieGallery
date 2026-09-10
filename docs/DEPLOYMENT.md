@@ -20,7 +20,7 @@ The frontend is a Vite single-page application. It builds to `dist/` and include
 
 ## Backend deployment
 
-The backend is a separate FastAPI service. It exposes `/health`, JWT authentication, movie catalog, library, rating, review, watchlist, favorite, and watched-history endpoints consumed by the frontend.
+The backend is a separate FastAPI service. It exposes `/health`, `/ready`, `/metrics`, JWT authentication, movie catalog, library, rating, review, watchlist, favorite, and watched-history endpoints consumed by the frontend.
 
 ### Render
 
@@ -30,9 +30,18 @@ The backend is a separate FastAPI service. It exposes `/health`, JWT authenticat
 4. Add `DATABASE_URL` using the managed PostgreSQL URL, using the `postgresql+asyncpg://` SQLAlchemy format.
 5. Run `alembic upgrade head` from the `backend` directory before enabling API traffic.
 6. Set `ENVIRONMENT=production`, `DEBUG=false`, explicit `ALLOWED_HOSTS`, `CORS_ORIGINS`, and a random `JWT_SECRET_KEY` of at least 32 characters.
-7. Confirm `https://<service>.onrender.com/health` returns `{"status":"ok"}` and `/ready` returns a database-backed ready response.
+7. Set `API_DOCS_ENABLED=false` unless you have a controlled internal need to expose Swagger or ReDoc.
+8. Optionally tune `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT_SECONDS`, `DATABASE_POOL_RECYCLE_SECONDS`, and `REQUEST_MAX_BODY_BYTES` for your hosting plan.
+9. Confirm `https://<service>.onrender.com/health` returns `{"status":"ok"}`, `/ready` returns a database-backed ready response, and `/metrics` returns Prometheus-formatted metrics.
 
 Set `CORS_ORIGINS` to the deployed frontend origin and set `VITE_API_BASE_URL` to the deployed API origin before connecting a production frontend.
+
+### Monitoring
+
+- `/health` is for basic liveness.
+- `/ready` verifies database connectivity.
+- `/metrics` exposes request counts, request latency, DB timing, and uptime in Prometheus format.
+- Response headers include request IDs and security headers, so reverse proxies and logs can correlate failures.
 
 ## Docker deployment
 
@@ -78,5 +87,7 @@ The repository already has an `origin` remote configured. Never commit database 
 - The deployed root page loads.
 - Direct navigation to `/login`, `/movies`, and `/settings` works after refresh.
 - Backend `/health` responds successfully, if the backend is deployed.
+- Backend `/ready` returns ready after migrations and database startup.
+- Backend `/metrics` is reachable from your monitoring layer.
 - Production CORS allows only the deployed frontend origin.
 - Database migrations have run before enabling API traffic.
