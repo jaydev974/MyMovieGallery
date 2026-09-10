@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth import pwd_context
+from app.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -73,6 +74,21 @@ def test_token_requests_expose_debug_tokens(auth_context: AuthTestContext, endpo
     assert response.status_code == 200
     assert response.json()["detail"].startswith("If an account exists")
     assert response.json()["token"]
+
+
+@pytest.mark.parametrize("endpoint", ["/api/auth/password-reset/request", "/api/auth/email-verification/request"])
+def test_token_requests_hide_tokens_in_production(
+    auth_context: AuthTestContext,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    monkeypatch.setattr(settings, "environment", "production")
+
+    response = auth_context.client.post(endpoint, json={"email": "auth@example.com"}, headers={"Host": "example.com"})
+
+    assert response.status_code == 200
+    assert response.json()["detail"].startswith("If an account exists")
+    assert response.json()["token"] is None
 
 
 def test_password_reset_updates_password_and_revokes_sessions(auth_context: AuthTestContext) -> None:
