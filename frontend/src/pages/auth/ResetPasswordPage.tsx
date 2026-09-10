@@ -20,7 +20,7 @@ export default function ResetPasswordPage() {
     if (!canSubmit) return;
     setLoading(true);
     try {
-      await api.post('/api/auth/password-reset/confirm', { token: token.trim(), password });
+      await api.post('/api/auth/password-reset/confirm', { token: token.trim(), password }, { suppressAuthExpired: true });
       setUpdated(true);
       toast.success('Password updated', 'You can now sign in with your new password.');
     } catch (error) {
