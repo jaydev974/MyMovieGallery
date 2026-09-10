@@ -97,3 +97,21 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
 
     expired_refresh = client.post("/api/auth/refresh", headers=headers)
     assert expired_refresh.status_code == 401
+
+
+def test_register_returns_unverified_account(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "name": "New User",
+            "email": "newuser@example.com",
+            "password": "StrongPass123!",
+            "is_private": False,
+        },
+        headers={"Host": "localhost"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["user"]["email"] == "newuser@example.com"
+    assert body["user"]["is_verified"] is False
