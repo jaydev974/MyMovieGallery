@@ -12,6 +12,10 @@ export class ApiError extends Error {
   }
 }
 
+interface ApiRequestOptions {
+  suppressAuthExpired?: boolean;
+}
+
 function getToken(): string | null {
   const persisted = localStorage.getItem('mmg-auth-v2');
   if (!persisted) return null;
@@ -60,7 +64,7 @@ async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit, attem
   throw lastError instanceof Error ? lastError : new Error('Request failed');
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiRequest<T>(path: string, init: RequestInit = {}, options: ApiRequestOptions = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const token = getToken();
@@ -90,7 +94,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   if (!response.ok) {
     const detail = data && typeof data === 'object' && 'detail' in data ? data.detail : undefined;
-    if (response.status === 401) window.dispatchEvent(new CustomEvent('mmg:auth-expired'));
+    if (response.status === 401 && !options.suppressAuthExpired) window.dispatchEvent(new CustomEvent('mmg:auth-expired'));
     throw new ApiError(response.status, typeof detail === 'string' ? detail : 'Request failed', response.headers.get('X-Request-ID') || undefined);
   }
 
@@ -98,8 +102,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 }
 
 export const api = {
-  get: <T>(path: string) => apiRequest<T>(path),
-  post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
-  put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) }),
-  delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  get: <T>(path: string, options?: ApiRequestOptions) => apiRequest<T>(path, {}, options),
+  post: <T>(path: string, body?: unknown, options?: ApiRequestOptions) => apiRequest<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }, options),
+  put: <T>(path: string, body?: unknown, options?: ApiRequestOptions) => apiRequest<T>(path, { method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) }, options),
+  delete: <T>(path: string, options?: ApiRequestOptions) => apiRequest<T>(path, { method: 'DELETE' }, options),
 };
