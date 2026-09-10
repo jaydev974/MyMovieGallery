@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          const refreshed = await api.post<AuthResponse>('/api/auth/refresh');
+          const refreshed = await api.post<AuthResponse>('/api/auth/refresh', undefined, { suppressAuthExpired: true });
           set({
             token: refreshed.access_token,
             user: mapApiUser(refreshed.user),
