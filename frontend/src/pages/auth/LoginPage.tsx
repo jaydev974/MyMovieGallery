@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading, rememberMe, setRememberMe } = useAuthStore();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -27,7 +27,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!validate()) return;
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       toast.success('Welcome back!', 'Ready for your next movie?');
       navigate('/dashboard');
     } catch {
@@ -120,7 +120,13 @@ export default function LoginPage() {
 
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="rounded" style={{ accentColor: 'var(--accent)' }} />
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ accentColor: 'var(--accent)' }}
+            />
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Remember me</span>
           </label>
           <Link to="/forgot-password" className="text-xs no-underline transition-colors"
