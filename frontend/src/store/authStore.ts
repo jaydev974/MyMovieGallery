@@ -6,13 +6,15 @@ import { api } from '../api/client';
 interface AuthState {
   user: User | null;
   token: string | null;
+  rememberMe: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
   initialize: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (name: string, email: string, password: string, isPrivate?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  setRememberMe: (rememberMe: boolean) => void;
 }
 
 interface AuthResponse {
@@ -56,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
+      rememberMe: false,
       isAuthenticated: false,
       isLoading: true,
       initialize: async () => {
@@ -84,11 +87,11 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string, rememberMe = false) => {
         set({ isLoading: true });
         try {
           const response = await api.post<AuthResponse>('/api/auth/login', { email, password }, { suppressAuthExpired: true });
-          set({ token: response.access_token, user: mapApiUser(response.user), isAuthenticated: true, isLoading: false });
+          set({ token: response.access_token, user: mapApiUser(response.user), rememberMe, isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -122,6 +125,8 @@ export const useAuthStore = create<AuthState>()(
         const apiUser = await api.put<AuthResponse['user']>('/api/auth/me', { name: updates.name || currentUser.name, bio: updates.bio ?? currentUser.bio, location: updates.location ?? currentUser.location, avatar_url: updates.avatarUrl ?? currentUser.avatarUrl ?? null, is_private: updates.isPrivate ?? currentUser.isPrivate });
         set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private, isVerified: apiUser.is_verified } });
       },
+
+      setRememberMe: (rememberMe: boolean) => set({ rememberMe }),
     }),
     {
       name: 'mmg-auth-v2',
@@ -132,6 +137,7 @@ export const useAuthStore = create<AuthState>()(
         return {
           ...state,
           user: state.user ? { ...state.user, isVerified: state.user.isVerified ?? false } : null,
+          rememberMe: state.rememberMe ?? false,
           isAuthenticated: Boolean(state.token && state.user),
           isLoading: false,
         } satisfies Partial<AuthState>;
