@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "local-development-secret-change-me"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
+    refresh_token_expire_days: int = Field(default=7, ge=1, le=90)
     omdb_api_key: str | None = None
     omdb_timeout_seconds: float = Field(default=8.0, gt=0, le=30)
 
