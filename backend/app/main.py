@@ -107,6 +107,7 @@ def _extract_cookie_value(set_cookie_header: str | None, cookie_name: str) -> st
 
 async def _capture_json_body(request: Request) -> dict[str, Any] | None:
     body = await request.body()
+
     async def receive() -> dict[str, object]:
         return {"type": "http.request", "body": body, "more_body": False}
 
@@ -125,6 +126,18 @@ async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     started = time.perf_counter()
 
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > settings.request_max_body_bytes:
+        response = JSONResponse(status_code=HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": "Request body too large"})
+        response.headers["X-Request-ID"] = request_id
+        for name, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        if settings.environment == "production":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        logger.warning("request rejected: body too large", request_id=request_id, path=request.url.path, content_length=content_length)
+        record_http_request(request.method, request.url.path, response.status_code, time.perf_counter() - started)
+        return response
+
     remember_me: bool | None = None
     clear_remember_me_cookie = False
     if request.method == "POST" and request.url.path in {"/api/auth/login", "/api/auth/register"}:
@@ -137,18 +150,6 @@ async def request_context(request: Request, call_next):
         "/api/auth/password-reset/confirm",
     }:
         clear_remember_me_cookie = True
-
-    content_length = request.headers.get("content-length")
-    if content_length and content_length.isdigit() and int(content_length) > settings.request_max_body_bytes:
-        response = JSONResponse(status_code=HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": "Request body too large"})
-        response.headers["X-Request-ID"] = request_id
-        for name, value in _SECURITY_HEADERS.items():
-            response.headers.setdefault(name, value)
-        if settings.environment == "production":
-            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        logger.warning("request rejected: body too large", request_id=request_id, path=request.url.path, content_length=content_length)
-        record_http_request(request.method, request.url.path, response.status_code, time.perf_counter() - started)
-        return response
 
     try:
         response = await call_next(request)
