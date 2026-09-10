@@ -42,7 +42,12 @@ function mapApiUser(apiUser: AuthResponse['user']): User {
     username: apiUser.username,
     bio: apiUser.bio || '',
     avatarColor: 'linear-gradient(135deg, #FFD700, #FF3C38)',
-    favoriteGenre: '', favoriteActor: '', favoriteDirector: '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private,
+    favoriteGenre: '',
+    favoriteActor: '',
+    favoriteDirector: '',
+    location: apiUser.location || undefined,
+    avatarUrl: apiUser.avatar_url || undefined,
+    isPrivate: apiUser.is_private,
     isVerified: apiUser.is_verified,
     joinedDate: apiUser.joined_date,
     totalWatched: 0,
@@ -122,23 +127,45 @@ export const useAuthStore = create<AuthState>()(
       updateProfile: async (updates) => {
         const currentUser = get().user;
         if (!currentUser) return;
-        const apiUser = await api.put<AuthResponse['user']>('/api/auth/me', { name: updates.name || currentUser.name, bio: updates.bio ?? currentUser.bio, location: updates.location ?? currentUser.location, avatar_url: updates.avatarUrl ?? currentUser.avatarUrl ?? null, is_private: updates.isPrivate ?? currentUser.isPrivate });
-        set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private, isVerified: apiUser.is_verified } });
+        const apiUser = await api.put<AuthResponse['user']>('/api/auth/me', {
+          name: updates.name || currentUser.name,
+          bio: updates.bio ?? currentUser.bio,
+          location: updates.location ?? currentUser.location,
+          avatar_url: updates.avatarUrl ?? currentUser.avatarUrl ?? null,
+          is_private: updates.isPrivate ?? currentUser.isPrivate,
+        });
+        set({
+          user: {
+            ...currentUser,
+            ...updates,
+            name: apiUser.name,
+            bio: apiUser.bio || '',
+            location: apiUser.location || undefined,
+            avatarUrl: apiUser.avatar_url || undefined,
+            isPrivate: apiUser.is_private,
+            isVerified: apiUser.is_verified,
+          },
+        });
       },
 
       setRememberMe: (rememberMe: boolean) => set({ rememberMe }),
     }),
     {
-      name: 'mmg-auth-v2',
-      version: 3,
+      name: 'mmg-auth-v3',
+      version: 4,
+      partialize: (state) => ({
+        rememberMe: state.rememberMe,
+        token: state.rememberMe ? state.token : null,
+      }),
       migrate: (persistedState: unknown) => {
         const state = persistedState as Partial<AuthState> | null;
         if (!state) return state;
+        const rememberMe = state.rememberMe ?? false;
         return {
-          ...state,
-          user: state.user ? { ...state.user, isVerified: state.user.isVerified ?? false } : null,
-          rememberMe: state.rememberMe ?? false,
-          isAuthenticated: Boolean(state.token && state.user),
+          rememberMe,
+          token: rememberMe ? state.token ?? null : null,
+          user: null,
+          isAuthenticated: false,
           isLoading: false,
         } satisfies Partial<AuthState>;
       },
