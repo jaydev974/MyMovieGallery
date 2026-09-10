@@ -1,0 +1,422 @@
+# MyMovieGallery: Run and Deploy Guide
+
+This guide explains how to run the complete MyMovieGallery project locally and how to deploy it to production.
+
+The repository contains:
+
+- `frontend/`: React, TypeScript, Vite, and Tailwind UI.
+- `backend/`: FastAPI API, JWT authentication, SQLAlchemy, Alembic, and recommendations.
+- PostgreSQL: application database.
+- Docker Compose: local and production container orchestration.
+
+## 1. Prerequisites
+
+Install the following tools:
+
+- Git
+- Python 3.11 or newer
+- Node.js 22 or newer and npm
+- Docker Desktop with Docker Compose
+- PostgreSQL, only if you are not using Docker for local development
+
+From the repository root, verify the tools:
+
+```powershell
+git --version
+python --version
+node --version
+npm --version
+docker --version
+docker compose version
+```
+
+## 2. Get the source code
+
+```powershell
+git clone <repository-url>
+cd MyMovieGallery
+```
+
+Never commit `.env`, `.env.production`, database passwords, JWT secrets, or third-party API keys.
+
+## 3. Option A: Run the complete stack with Docker
+
+This is the simplest local setup. It starts the frontend, FastAPI backend, and PostgreSQL.
+
+### 3.1 Configure Docker environment variables
+
+From the repository root:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and replace every placeholder. At minimum configure:
+
+```dotenv
+POSTGRES_DB=mymoviegallery
+POSTGRES_USER=mymoviegallery
+POSTGRES_PASSWORD=use-a-local-password
+DATABASE_URL=postgresql+asyncpg://mymoviegallery:use-a-local-password@db:5432/mymoviegallery
+CORS_ORIGINS=http://localhost:8080
+ALLOWED_HOSTS=localhost,127.0.0.1
+JWT_SECRET_KEY=use-a-random-secret-at-least-32-characters-long
+OMDB_API_KEY=optional-omdb-key
+VITE_API_BASE_URL=
+```
+
+`VITE_API_BASE_URL` should remain empty when using the bundled nginx proxy. The frontend then sends `/api/...` requests through nginx to the backend container.
+
+### 3.2 Validate and start the stack
+
+```powershell
+docker compose --env-file .env -f docker-compose.yml config --quiet
+docker compose --env-file .env -f docker-compose.yml up --build -d
+```
+
+The first build also creates the recommendation artifact from the bundled movie data.
+
+Open:
+
+- Frontend: `http://localhost:8080`
+- API health: `http://localhost:8000/health`
+- API readiness: `http://localhost:8000/ready`
+- API docs in development: `http://localhost:8000/docs`
+
+Inspect status and logs:
+
+```powershell
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f db
+```
+
+Stop the services:
+
+```powershell
+docker compose down
+```
+
+Remove the local database volume only when you intentionally want to delete all local data:
+
+```powershell
+docker compose down -v
+```
+
+## 4. Option B: Run backend and frontend separately
+
+Use this workflow for active development, debugging, and frontend hot reload.
+
+### 4.1 Start PostgreSQL
+
+You can run only the database with Docker:
+
+```powershell
+docker compose --env-file .env -f docker-compose.yml up -d db
+```
+
+For a locally installed PostgreSQL server, create a database and user matching `DATABASE_URL`.
+
+### 4.2 Configure and start the backend
+
+Open a new terminal at the repository root:
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+For separate local processes, use a host database URL instead of the Docker hostname `db`:
+
+```dotenv
+ENVIRONMENT=development
+DEBUG=true
+ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ORIGINS=http://localhost:5173,http://localhost:8080
+DATABASE_URL=postgresql+asyncpg://mymoviegallery:your-password@localhost:5432/mymoviegallery
+JWT_SECRET_KEY=use-a-random-secret-at-least-32-characters-long
+API_DOCS_ENABLED=true
+OMDB_API_KEY=optional-omdb-key
+```
+
+Create a virtual environment and install dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Run database migrations before starting the API:
+
+```powershell
+alembic upgrade head
+```
+
+Start FastAPI with reload enabled for development:
+
+```powershell
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Backend URLs:
+
+- API: `http://localhost:8000`
+- Health: `http://localhost:8000/health`
+- Readiness: `http://localhost:8000/ready`
+- Swagger UI: `http://localhost:8000/docs`
+
+### 4.3 Configure and start the frontend
+
+Open another terminal at the repository root:
+
+```powershell
+cd frontend
+Copy-Item .env.example .env
+npm ci
+npm run dev
+```
+
+For a separately running backend, set this in `frontend/.env`:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+Open the Vite URL shown in the terminal, normally `http://localhost:5173`.
+
+## 5. Database migrations
+
+The backend uses Alembic. Do not use `Base.metadata.create_all()` in production.
+
+From `backend/` with the backend virtual environment active:
+
+```powershell
+alembic current
+alembic history
+alembic upgrade head
+```
+
+To create a migration after an intentional model change:
+
+```powershell
+alembic revision --autogenerate -m "describe the schema change"
+```
+
+Review autogenerated migrations manually before applying them. Back up production PostgreSQL before destructive schema changes.
+
+## 6. Test and quality checks
+
+Backend checks:
+
+```powershell
+cd backend
+python -m compileall -q app
+pytest -q
+pytest --cov=app --cov-report=term-missing
+```
+
+Frontend checks:
+
+```powershell
+cd frontend
+npm run lint
+npm run build
+npm run preview
+```
+
+The production build is written to `frontend/dist/`.
+
+## 7. Production environment variables
+
+Create the production environment file from the repository root:
+
+```powershell
+Copy-Item .env.production.example .env.production
+```
+
+Replace every placeholder. Required backend and database values include:
+
+```dotenv
+ENVIRONMENT=production
+DEBUG=false
+API_DOCS_ENABLED=false
+APP_VERSION=1.0.0
+WEB_CONCURRENCY=2
+ALLOWED_HOSTS=api.example.com,app.example.com
+CORS_ORIGINS=https://app.example.com
+POSTGRES_DB=mymoviegallery
+POSTGRES_USER=mymoviegallery
+POSTGRES_PASSWORD=<long-random-database-password>
+DATABASE_URL=postgresql+asyncpg://mymoviegallery:<password>@db:5432/mymoviegallery
+JWT_SECRET_KEY=<long-random-secret-at-least-32-characters>
+OMDB_API_KEY=<optional-server-side-key>
+VITE_API_BASE_URL=
+```
+
+Use the real public frontend origin in `CORS_ORIGINS`. `ALLOWED_HOSTS` contains hostnames only, without `https://` or paths. Keep API keys server-side; never put `OMDB_API_KEY` in a `VITE_*` variable.
+
+Generate a strong secret with Python:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+## 8. Production deployment with Docker Compose
+
+This deployment runs PostgreSQL and FastAPI on the private Compose network. Only the frontend port is published.
+
+Validate the environment and start the production stack:
+
+```powershell
+docker compose --env-file .env.production -f docker-compose.production.yml config --quiet
+docker compose --env-file .env.production -f docker-compose.production.yml up --build -d
+```
+
+The backend container runs:
+
+1. `alembic upgrade head`
+2. Gunicorn with Uvicorn workers
+
+Check deployment status:
+
+```powershell
+docker compose --env-file .env.production -f docker-compose.production.yml ps
+docker compose --env-file .env.production -f docker-compose.production.yml logs -f backend
+```
+
+Verify health from the server or reverse proxy:
+
+```powershell
+curl http://localhost/health
+curl http://localhost/ready
+```
+
+Put TLS and a domain in front of the frontend container using a managed load balancer, Caddy, Traefik, nginx, or another reverse proxy. Do not expose PostgreSQL publicly.
+
+For an update:
+
+```powershell
+git pull
+docker compose --env-file .env.production -f docker-compose.production.yml up --build -d
+```
+
+For rollback, deploy the previous image or Git revision and verify `/health` and `/ready` before routing traffic to it.
+
+## 9. Deploy the frontend to Vercel or Netlify
+
+The frontend can be deployed independently from the backend.
+
+### Vercel
+
+1. Import the repository.
+2. Set the project root directory to `frontend`.
+3. Use `npm ci` as the install command.
+4. Use `npm run build` as the build command.
+5. Use `dist` as the output directory.
+6. Set `VITE_API_BASE_URL` to the public backend URL, for example `https://api.example.com`.
+7. Deploy and confirm a direct route such as `/login` works after refresh.
+
+The existing `frontend/vercel.json` provides SPA fallback rewrites.
+
+### Netlify
+
+1. Import the repository.
+2. Set the base directory to `frontend`.
+3. Use `npm run build` as the build command.
+4. Use `dist` as the publish directory.
+5. Set `VITE_API_BASE_URL` to the public backend URL.
+6. Deploy and confirm that `frontend/public/_redirects` handles direct SPA routes.
+
+## 10. Deploy the backend to a managed service
+
+For Render, Railway, Fly.io, or a similar service:
+
+1. Create a managed PostgreSQL database.
+2. Create a Python web service from this repository.
+3. Set the service root directory to `backend`.
+4. Install dependencies with `pip install -r requirements.txt`.
+5. Run migrations as a release or pre-deploy command: `alembic upgrade head`.
+6. Start the service with:
+
+```bash
+gunicorn app.main:app --bind 0.0.0.0:$PORT --worker-class uvicorn.workers.UvicornWorker --workers ${WEB_CONCURRENCY:-2} --timeout 60
+```
+
+7. Configure `DATABASE_URL`, `ENVIRONMENT`, `DEBUG`, `ALLOWED_HOSTS`, `CORS_ORIGINS`, and `JWT_SECRET_KEY`.
+8. Set `OMDB_API_KEY` only if metadata search is required.
+9. Configure the service health check as `/health` and readiness check as `/ready`.
+10. Set the frontend `VITE_API_BASE_URL` to the deployed API origin.
+
+## 11. First production verification
+
+After deployment, verify all of the following:
+
+- `GET /health` returns HTTP 200.
+- `GET /ready` returns HTTP 200 and confirms database connectivity.
+- API documentation is disabled in production unless explicitly required.
+- The frontend loads on the public domain.
+- Direct navigation to `/login`, `/dashboard`, `/movies`, and `/settings` works.
+- User registration and login work.
+- Authenticated movie, watchlist, watched, favorite, rating, and review operations work.
+- A private profile does not expose library data to another user.
+- CORS allows the frontend origin and rejects unexpected origins.
+- Database migrations completed successfully.
+- Container logs contain no secrets or connection strings.
+
+## 12. Troubleshooting
+
+### Frontend cannot reach the API
+
+- Separate frontend hosting: confirm `VITE_API_BASE_URL` is set before building.
+- Docker hosting: leave `VITE_API_BASE_URL` empty and confirm the frontend nginx container can resolve `backend`.
+- Confirm backend `CORS_ORIGINS` exactly matches the browser origin.
+
+### Database connection fails
+
+- Confirm PostgreSQL is running.
+- Confirm the hostname is `db` inside Compose and `localhost` for separate local processes.
+- Confirm the username, password, database name, and async driver in `DATABASE_URL`.
+- Run `alembic upgrade head` from `backend/`.
+
+### Requests return 400 from TrustedHostMiddleware
+
+Add the request hostname to `ALLOWED_HOSTS`. Use hostnames only, such as `localhost`, `127.0.0.1`, or `api.example.com`.
+
+### Recommendations return 503
+
+The recommendation artifact may be missing or invalid. Rebuild the backend image so `scripts/train_recommender.py` runs, or run it manually from `backend/`:
+
+```powershell
+python scripts/train_recommender.py
+```
+
+### OMDb search is unavailable
+
+Set `OMDB_API_KEY` on the backend only, then restart the backend. The endpoint intentionally returns a service-unavailable response when no key is configured.
+
+## 13. Useful commands
+
+```powershell
+# Show running containers
+docker ps
+
+# Follow all local logs
+docker compose logs -f
+
+# Open a shell in the backend container
+docker compose exec backend sh
+
+# Open a PostgreSQL shell
+docker compose exec db psql -U mymoviegallery -d mymoviegallery
+
+# Rebuild only the frontend
+docker compose build frontend
+
+# Rebuild only the backend
+docker compose build backend
+```
+
+Always run migrations before serving a new backend version, keep backups before schema changes, and rotate any credential that may have been exposed.

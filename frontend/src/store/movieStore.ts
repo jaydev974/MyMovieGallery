@@ -52,19 +52,23 @@ export const useMovieStore = create<MovieState>()((set, get) => ({
     const movie = get().movies.find((item) => item.id === id); if (!movie?.backendId) return;
     if (movie.isFavorite) await api.delete(`/api/movies/${movie.backendId}/favorite`); else await api.post(`/api/movies/${movie.backendId}/favorite`);
     set((state) => ({ movies: state.movies.map((item) => item.id === id ? { ...item, isFavorite: !item.isFavorite } : item) }));
+    window.dispatchEvent(new CustomEvent('mmg:recommendations-refresh'));
   },
   toggleWatchlist: async (id) => {
     const movie = get().movies.find((item) => item.id === id); if (!movie?.backendId) return;
     if (movie.isInWatchlist) await api.delete(`/api/movies/${movie.backendId}/watchlist`); else await api.post(`/api/movies/${movie.backendId}/watchlist`);
     set((state) => ({ movies: state.movies.map((item) => item.id === id ? { ...item, isInWatchlist: !item.isInWatchlist, status: item.isInWatchlist ? undefined : 'plan_to_watch' } : item) }));
+    window.dispatchEvent(new CustomEvent('mmg:recommendations-refresh'));
   },
   rateMovie: async (id, rating) => {
     const movie = get().movies.find((item) => item.id === id); if (!movie?.backendId) return; await api.put(`/api/movies/${movie.backendId}/rating`, { score: rating });
     set((state) => ({ movies: state.movies.map((item) => item.id === id ? { ...item, userRating: rating } : item) }));
+    window.dispatchEvent(new CustomEvent('mmg:recommendations-refresh'));
   },
   markWatched: async (id, date) => {
     const movie = get().movies.find((item) => item.id === id); if (!movie?.backendId) return; await api.post(`/api/movies/${movie.backendId}/watched`);
     set((state) => ({ movies: state.movies.map((item) => item.id === id ? { ...item, status: 'watched', watchedDate: date || new Date().toISOString().split('T')[0] } : item) }));
+    window.dispatchEvent(new CustomEvent('mmg:recommendations-refresh'));
   },
   addReview: async (review) => {
     const movie = get().movies.find((item) => item.id === review.movieId); if (!movie?.backendId) return;

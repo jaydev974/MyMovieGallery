@@ -9,7 +9,7 @@ The frontend is a Vite single-page application. It builds to `dist/` and include
 1. Push the repository to GitHub.
 2. In Vercel, select **Add New Project** and import the repository.
 3. Set the root directory to `frontend`, use `npm ci` as the install command, `npm run build` as the build command, and `dist` as the output directory.
-4. Deploy. `vercel.json` keeps deep links such as `/dashboard` working.
+4. Add `VITE_API_BASE_URL` with the public backend origin, then deploy. `vercel.json` keeps deep links such as `/dashboard` working.
 
 ### Netlify
 
@@ -29,7 +29,8 @@ The backend is a separate FastAPI service. It exposes `/health`, JWT authenticat
 3. Set the root directory to `backend`, runtime to `Python 3`, build command to `pip install -r requirements.txt`, and start command to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 4. Add `DATABASE_URL` using the managed PostgreSQL URL, using the `postgresql+asyncpg://` SQLAlchemy format.
 5. Run `alembic upgrade head` from the `backend` directory before enabling API traffic.
-6. Confirm `https://<service>.onrender.com/health` returns `{"status":"ok"}`.
+6. Set `ENVIRONMENT=production`, `DEBUG=false`, explicit `ALLOWED_HOSTS`, `CORS_ORIGINS`, and a random `JWT_SECRET_KEY` of at least 32 characters.
+7. Confirm `https://<service>.onrender.com/health` returns `{"status":"ok"}` and `/ready` returns a database-backed ready response.
 
 Set `CORS_ORIGINS` to the deployed frontend origin and set `VITE_API_BASE_URL` to the deployed API origin before connecting a production frontend.
 
@@ -56,7 +57,7 @@ cp .env.production.example .env.production
 docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
 ```
 
-The production configuration does not publish MySQL or FastAPI ports, runs the API with Gunicorn, disables interactive API documentation, requires explicit CORS origins, and uses a non-root backend container. Terminate HTTPS at a managed load balancer or reverse proxy and forward traffic to the frontend on port 80.
+The production configuration does not publish PostgreSQL or FastAPI ports, runs the API with Gunicorn, disables interactive API documentation, requires explicit CORS origins, and uses a non-root backend container. Terminate HTTPS at a managed load balancer or reverse proxy and forward traffic to the frontend on port 80.
 
 ## GitHub push
 

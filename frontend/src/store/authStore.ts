@@ -8,8 +8,9 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, isPrivate?: boolean) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
@@ -25,6 +26,8 @@ interface AuthResponse {
     joined_date: string;
     bio?: string | null;
     location?: string | null;
+    avatar_url?: string | null;
+    is_private: boolean;
   };
 }
 
@@ -36,7 +39,7 @@ function mapApiUser(apiUser: AuthResponse['user']): User {
     username: apiUser.username,
     bio: apiUser.bio || '',
     avatarColor: 'linear-gradient(135deg, #FFD700, #FF3C38)',
-    favoriteGenre: '', favoriteActor: '', favoriteDirector: '', location: apiUser.location || undefined,
+    favoriteGenre: '', favoriteActor: '', favoriteDirector: '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private,
     joinedDate: apiUser.joined_date,
     totalWatched: 0,
     totalReviews: 0,
@@ -52,7 +55,21 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true,
+      initialize: async () => {
+        const { token } = get();
+        if (!token) {
+          set({ isLoading: false });
+          return;
+        }
+        set({ isLoading: true });
+        try {
+          const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
+          set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
+        } catch {
+          set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+        }
+      },
 
       login: async (email: string, password: string) => {
         set({ isLoading: true });
@@ -65,10 +82,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (name: string, email: string, password: string) => {
+      register: async (name: string, email: string, password: string, isPrivate = false) => {
         set({ isLoading: true });
         try {
-          const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password });
+          const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password, is_private: isPrivate });
           set({ token: response.access_token, user: mapApiUser(response.user), isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
@@ -83,10 +100,14 @@ export const useAuthStore = create<AuthState>()(
       updateProfile: async (updates) => {
         const currentUser = get().user;
         if (!currentUser) return;
-        const apiUser = await api.put<AuthResponse['user']>('/api/auth/me', { name: updates.name || currentUser.name, bio: updates.bio ?? currentUser.bio, location: updates.location ?? currentUser.location });
-        set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined } });
+        const apiUser = await api.put<AuthResponse['user']>('/api/auth/me', { name: updates.name || currentUser.name, bio: updates.bio ?? currentUser.bio, location: updates.location ?? currentUser.location, avatar_url: updates.avatarUrl ?? currentUser.avatarUrl ?? null, is_private: updates.isPrivate ?? currentUser.isPrivate });
+        set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private } });
       },
     }),
     { name: 'mmg-auth-v2' }
   )
 );
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('mmg:auth-expired', () => useAuthStore.getState().logout());
+}

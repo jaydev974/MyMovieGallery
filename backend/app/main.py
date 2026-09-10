@@ -1,63 +1,76 @@
-import os
+import logging
+import time
+import uuid
 from functools import lru_cache
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-
-# Load backend/.env for direct uvicorn runs; Docker Compose injects environment variables itself.
-load_dotenv()
 
 from app.auth import router as auth_router
 from app.api.metadata import router as metadata_router
 from app.api.profiles import router as profiles_router
+from app.api.recommendations import router as personalized_recommendations_router
 from app.library import router as library_router
 from app.recommendations import RecommendationModel
+from app.config import settings
+from app.db.session import engine
+from sqlalchemy import text
 
-environment = os.getenv("ENVIRONMENT", "development").lower()
-docs_enabled = os.getenv("API_DOCS_ENABLED", "true").lower() == "true"
+logger = logging.getLogger("mymoviegallery.api")
 
 app = FastAPI(
     title="MyMovieGallery API",
-    version=os.getenv("APP_VERSION", "1.0.0"),
-    docs_url="/docs" if docs_enabled else None,
-    redoc_url="/redoc" if docs_enabled else None,
-    openapi_url="/openapi.json" if docs_enabled else None,
+    version=settings.app_version,
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
-
-cors_origins = [
-    origin.strip()
-    for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-]
-
-allowed_hosts = [
-    host.strip()
-    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-    if host.strip()
-]
-
-if environment == "production" and (not cors_origins or "*" in cors_origins):
-    raise RuntimeError("CORS_ORIGINS must contain explicit origins in production")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.include_router(auth_router)
 app.include_router(library_router)
 app.include_router(profiles_router)
 app.include_router(metadata_router)
+app.include_router(personalized_recommendations_router)
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Unhandled request error", extra={"request_id": request_id, "path": request.url.path})
+        response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    response.headers["X-Request-ID"] = request_id
+    logger.info("request complete", extra={"request_id": request_id, "path": request.url.path, "status_code": response.status_code, "duration_ms": round((time.perf_counter() - started) * 1000, 2)})
+    return response
 
 
 @app.get("/health", tags=["system"])
 async def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "mymoviegallery-api"}
+
+
+@app.get("/ready", tags=["system"])
+async def readiness_check() -> dict[str, str]:
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("readiness check failed")
+        return JSONResponse(status_code=503, content={"status": "not_ready", "service": "mymoviegallery-api"})
+    return {"status": "ready", "service": "mymoviegallery-api"}
 
 
 @lru_cache(maxsize=1)

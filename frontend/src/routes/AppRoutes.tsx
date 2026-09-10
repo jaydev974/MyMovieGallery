@@ -19,13 +19,16 @@ const SearchPage = React.lazy(() => import('../pages/SearchPage'));
 const RecommendationsPage = React.lazy(() => import('../pages/RecommendationsPage'));
 const AnalyticsPage = React.lazy(() => import('../pages/AnalyticsPage'));
 const WatchlistPage = React.lazy(() => import('../pages/WatchlistPage'));
+const WatchedPage = React.lazy(() => import('../pages/WatchedPage'));
+const PublicProfilePage = React.lazy(() => import('../pages/PublicProfilePage'));
 const ReviewsPage = React.lazy(() => import('../pages/ReviewsPage'));
 const ProfilePage = React.lazy(() => import('../pages/ProfilePage'));
 const SettingsPage = React.lazy(() => import('../pages/SettingsPage'));
 const NotFoundPage = React.lazy(() => import('../pages/NotFoundPage'));
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  if (isLoading) return <LoadingFallback />;
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
@@ -41,6 +44,7 @@ export default function AppRoutes() {
         {/* Public Landing */}
         <Route element={<RootLayout />}>
           <Route index element={<LandingPage />} />
+          <Route path="/users/:username" element={<PublicProfilePage />} />
         </Route>
 
         {/* Auth Routes */}
@@ -59,6 +63,7 @@ export default function AppRoutes() {
           <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
+          <Route path="/watched" element={<WatchedPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />

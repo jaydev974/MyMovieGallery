@@ -9,7 +9,7 @@ This backend package contains the SQLAlchemy 2.0 models, Alembic migrations, Pos
 - base model in `app/db/base.py`
 - Alembic migration baseline in `alembic/versions/20260905_initial_schema.py`
 - seed references in `app/seed_data.py`
-- recommendation inference in `app/recommendations.py`
+- personalized recommendation inference in `app/recommendations.py` and `app/api/recommendations.py`
 - recommendation training data in `data/movies.json`
 - recommendation trainer in `scripts/train_recommender.py`
 - architecture documentation in `docs/database_design.md`
@@ -54,7 +54,19 @@ The frontend Search page calls the same endpoint. The OMDb key is added to the o
 
 ## Notes
 
-The recommendation model currently uses TF-IDF vectors over movie titles, genres, and overviews. It is a content-based model; collaborative filtering requires real user ratings and will be added once those records are persisted through the API.
+The recommender is a lightweight, explainable content-based model. Training builds TF-IDF vectors from catalog title, genres, overview, director, cast, and keywords, then stores the vectorizer and matrix in `artifacts/recommender.joblib`. The protected `GET /api/recommendations/me?limit=20` endpoint builds a private taste vector from the authenticated user's completed watches, ratings, favorites, and watchlist. Higher ratings, favorites, and recent watches have more weight. Results exclude completed watches and unavailable/deleted catalog records, cap repeated genres/directors, and include human-readable reasons.
+
+Users without completed history receive featured/popular catalog movies, with watchlist items used as a light cold-start taste signal when available. Personalized rows are cached for six hours in the existing `recommendations` table and invalidated when watchlist, favorite, watched, rating, or review-rating data changes. The endpoint derives identity only from the JWT; public profile routes do not expose recommendation rows.
+
+If the model artifact is missing, cold-start popularity recommendations still work. A user with preference signals receives HTTP 503 with the training command in the error detail until the artifact is generated.
+
+Retrain after catalog metadata changes from the `backend/` directory:
+
+```bash
+python scripts/train_recommender.py
+```
+
+Docker generates the artifact during the backend image build. For local development, `DATABASE_URL`, `JWT_SECRET_KEY`, `CORS_ORIGINS`, and `ALLOWED_HOSTS` are required; `OMDB_API_KEY` is optional and remains server-side for metadata enrichment.
 
 For production, set `ENVIRONMENT=production`, provide an explicit `ALLOWED_HOSTS` and `CORS_ORIGINS`, use a long random database password, and run the backend behind Gunicorn using `docker-compose.production.yml`.
 

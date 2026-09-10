@@ -12,7 +12,7 @@ export default function ProfilePage() {
   const { getWatchedMovies, getFavoriteMovies, getWatchlistMovies, reviews } = useMovieStore();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: user?.name || '', bio: user?.bio || '', location: user?.location || '' });
+  const [form, setForm] = useState({ name: user?.name || '', bio: user?.bio || '', location: user?.location || '', isPrivate: user?.isPrivate || false });
 
   const watched = getWatchedMovies();
   const favorites = getFavoriteMovies();
@@ -66,11 +66,13 @@ export default function ProfilePage() {
                     placeholder="Location"
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                     style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+                  <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}><input type="checkbox" checked={form.isPrivate} onChange={(e) => setForm((p) => ({ ...p, isPrivate: e.target.checked }))} /> Private account</label>
                 </div>
               ) : (
                 <div>
                   <h1 className="text-2xl font-black" style={{ fontFamily: 'Poppins, sans-serif', color: 'var(--text)' }}>{user?.name}</h1>
                   <p className="text-sm mt-0.5" style={{ color: 'var(--accent)' }}>@{user?.username}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{user?.isPrivate ? '🔒 Private account' : '🌐 Public profile'} · <a className="no-underline" style={{ color: 'var(--accent)' }} href={`/users/${user?.username}`}>View public profile</a></p>
                   <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{user?.bio}</p>
                   {user?.location && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>📍 {user.location}</p>}
                   <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>

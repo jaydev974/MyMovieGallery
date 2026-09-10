@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -15,20 +14,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.config import settings
 from app.models import User
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 security = HTTPBearer(auto_error=False)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", os.getenv("SECRET_KEY", "local-development-secret"))
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+JWT_ALGORITHM = settings.jwt_algorithm
+JWT_SECRET_KEY = settings.jwt_secret_key
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
 class RegisterRequest(BaseModel):
     name: str = Field(min_length=2, max_length=180)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    is_private: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -46,12 +47,16 @@ class UserResponse(BaseModel):
     joined_date: datetime
     bio: str | None = None
     location: str | None = None
+    avatar_url: str | None = None
+    is_private: bool
 
 
 class ProfileUpdateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=180)
     bio: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=180)
+    avatar_url: str | None = Field(default=None, max_length=512)
+    is_private: bool | None = None
 
 
 class AuthResponse(BaseModel):
@@ -69,6 +74,8 @@ def _user_response(user: User) -> UserResponse:
         joined_date=user.created_at,
         bio=user.bio,
         location=user.location,
+        avatar_url=user.avatar_url,
+        is_private=user.is_private,
     )
 
 
@@ -111,6 +118,7 @@ async def register(payload: RegisterRequest, session: AsyncSession = Depends(get
         username=username,
         full_name=payload.name.strip(),
         password_hash=pwd_context.hash(payload.password),
+        is_private=payload.is_private,
     )
     session.add(user)
     try:
@@ -163,6 +171,21 @@ async def get_current_user(
     return user
 
 
+async def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    session: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Resolve a viewer when present without turning public profile views into auth failures."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        user_id = uuid.UUID(str(payload.get("sub")))
+    except (JWTError, ValueError, TypeError):
+        return None
+    return await session.scalar(select(User).where(User.id == user_id, User.deleted_at.is_(None), User.is_active.is_(True)))
+
+
 @router.get("/me", response_model=UserResponse)
 async def current_user(user: User = Depends(get_current_user)) -> UserResponse:
     return _user_response(user)
@@ -177,6 +200,9 @@ async def update_current_user(
     user.full_name = payload.name.strip()
     user.bio = payload.bio
     user.location = payload.location
+    user.avatar_url = payload.avatar_url
+    if payload.is_private is not None:
+        user.is_private = payload.is_private
     await session.commit()
     await session.refresh(user)
     return _user_response(user)

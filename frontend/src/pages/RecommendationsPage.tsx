@@ -1,105 +1,93 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMovieStore } from '../store/movieStore';
 import MovieCard from '../components/ui/MovieCard';
 import GradientOrbs from '../components/effects/GradientOrbs';
 import { pageVariants, pageTransition, staggerContainer, staggerItem, fadeInUp } from '../animations/variants';
 import type { Movie } from '../types';
-
-interface RecommendationReason {
-  label: string;
-  type: string;
-}
+import { api } from '../api/client';
+import { useToastStore } from '../store/toastStore';
 
 interface RecommendedMovie {
   movie: Movie;
   confidence: number;
   similarity: number;
-  reasons: RecommendationReason[];
+  reasons: Array<{ type: string; label: string }>;
   genreOverlap: string[];
 }
 
-function getRecommendations(movies: Movie[], watched: Movie[]): RecommendedMovie[] {
-  const watchedGenres = watched.flatMap((m) => m.genre);
-  const genreCounts: Record<string, number> = {};
-  watchedGenres.forEach((g) => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
-  const watchedIds = new Set(watched.map((m) => m.id));
-  const watchedDirectors = watched.map((m) => m.director);
+interface ApiMovie {
+  id: string;
+  title: string;
+  slug: string;
+  year: number | null;
+  overview: string | null;
+  genres: string[];
+  status: string;
+  vote_average: number | null;
+  runtime_minutes: number | null;
+}
 
-  return movies
-    .filter((m) => !watchedIds.has(m.id))
-    .map((movie) => {
-      const genreOverlap = movie.genre.filter((g) => genreCounts[g]);
-      const genreScore = genreOverlap.reduce((acc, g) => acc + (genreCounts[g] || 0), 0);
-      const directorMatch = watchedDirectors.includes(movie.director);
-      const similarity = Math.min(100, Math.round((genreScore * 15) + (directorMatch ? 25 : 0) + (movie.imdbRating * 3)));
-      const confidence = Math.min(100, Math.round(similarity * 0.85 + movie.popularity * 0.15));
+interface ApiRecommendations {
+  cold_start: boolean;
+  results: Array<{
+    movie: ApiMovie;
+    score: number;
+    confidence: number;
+    reasons: string[];
+    genre_overlap: string[];
+  }>;
+}
 
-      const reasons: RecommendationReason[] = [];
-      if (directorMatch) {
-        const matchedFilm = watched.find((m) => m.director === movie.director);
-        reasons.push({ type: 'same_director', label: `Because you liked ${matchedFilm?.title}` });
-      }
-      genreOverlap.slice(0, 2).forEach((g) => {
-        const relatedFilm = watched.find((m) => m.genre.includes(g));
-        if (relatedFilm) reasons.push({ type: 'similar_movie', label: `Similar to ${relatedFilm.title}` });
-      });
-      if (movie.popularity > 90) reasons.push({ type: 'trending', label: 'Trending this week' });
-
-      return { movie, confidence, similarity, reasons, genreOverlap };
-    })
-    .filter((r) => r.similarity > 0)
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 20);
+function mapRecommendationMovie(apiMovie: ApiMovie, localMovie: Movie | undefined, index: number): Movie {
+  if (localMovie) return localMovie;
+  const year = apiMovie.year || 0;
+  return {
+    id: -(index + 1), backendId: apiMovie.id, title: apiMovie.title, year, genre: apiMovie.genres,
+    overview: apiMovie.overview || '', director: 'Unknown', cast: [], runtime: apiMovie.runtime_minutes || 0,
+    language: 'English', country: 'USA', imdbRating: apiMovie.vote_average || 0, rottenTomatoes: 0,
+    posterColor: 'linear-gradient(145deg, #172033, #334155)', accentColor: '#fbbf24', backdropColor: 'linear-gradient(135deg, #172033, #0f172a)',
+    status: undefined, decade: Math.floor(year / 10) * 10, popularity: apiMovie.vote_average || 0,
+  };
 }
 
 export default function RecommendationsPage() {
   const { movies, getWatchedMovies } = useMovieStore();
+  const addToast = useToastStore((state) => state.addToast);
   const watched = getWatchedMovies();
   const watchedKey = watched.map((movie) => movie.id).join(',');
-  const [recommendations, setRecommendations] = useState<RecommendedMovie[]>(() => getRecommendations(movies, watched));
+  const [recommendations, setRecommendations] = useState<RecommendedMovie[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [coldStart, setColdStart] = useState(false);
+
+  const loadRecommendations = useCallback(async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const payload = await api.get<ApiRecommendations>('/api/recommendations/me?limit=20');
+        setColdStart(payload.cold_start);
+        setRecommendations(payload.results.map((result, index) => ({
+          movie: mapRecommendationMovie(result.movie, movies.find((movie) => movie.backendId === result.movie.id), index),
+          confidence: result.confidence,
+          similarity: Math.round(result.score * 100),
+          reasons: result.reasons.map((label) => ({ type: 'model' as const, label })),
+          genreOverlap: result.genre_overlap,
+        })));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to load recommendations';
+        setError(message);
+        addToast({ type: 'error', title: 'Recommendations unavailable', message });
+      } finally {
+        setIsLoading(false);
+      }
+  }, [addToast, movies]);
 
   useEffect(() => {
-    const sourceMovie = watched[0];
-    if (!sourceMovie) {
-      setRecommendations([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const loadRecommendations = async () => {
-      try {
-        const response = await fetch(
-          `/api/recommendations?title=${encodeURIComponent(sourceMovie.title)}&limit=20`,
-          { signal: controller.signal },
-        );
-        if (!response.ok) throw new Error('Recommendation service unavailable');
-        const payload = await response.json() as {
-          results: Array<{ title: string; score: number; reason: string }>;
-        };
-        const localMoviesByTitle = new Map(movies.map((movie) => [movie.title, movie]));
-        const apiRecommendations = payload.results.flatMap((result) => {
-          const movie = localMoviesByTitle.get(result.title);
-          if (!movie) return [];
-          const confidence = Math.round(result.score * 100);
-          return [{
-            movie,
-            confidence,
-            similarity: confidence,
-            reasons: [{ type: 'model', label: result.reason }],
-            genreOverlap: movie.genre.filter((genre) => sourceMovie.genre.includes(genre)),
-          }];
-        });
-        setRecommendations(apiRecommendations);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        setRecommendations(getRecommendations(movies, watched));
-      }
-    };
-
     void loadRecommendations();
-    return () => controller.abort();
-  }, [movies, watchedKey]);
+    window.addEventListener('mmg:recommendations-refresh', loadRecommendations);
+    return () => window.removeEventListener('mmg:recommendations-refresh', loadRecommendations);
+  }, [loadRecommendations, watchedKey]);
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={pageTransition}
@@ -119,15 +107,23 @@ export default function RecommendationsPage() {
             Recommended <span className="gradient-text">For You</span>
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Based on your {watched.length} watched films, your taste preferences, and trending cinema
+            {coldStart ? 'Popular and featured picks to help us learn your taste' : `Based on your ${watched.length} watched films, ratings, favorites, and recency`}
           </p>
         </motion.div>
 
-        {recommendations.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-20" style={{ color: 'var(--text-muted)' }}>Loading recommendations...</div>
+        ) : error ? (
+          <div className="glass-card text-center py-12 px-6" style={{ color: 'var(--danger)' }}>
+            <h3 className="text-xl font-bold mb-2">We could not load your recommendations</h3>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{error}</p>
+            <button className="px-4 py-2 rounded-xl font-bold" style={{ background: 'var(--accent)', color: '#000' }} onClick={() => void loadRecommendations()}>Try again</button>
+          </div>
+        ) : recommendations.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🎬</div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Rate more movies to unlock recommendations</h3>
-            <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>The more you watch and rate, the better we know your taste</p>
+            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>No recommendations yet</h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Add movies to your watchlist, mark one watched, or rate a film to get started.</p>
           </div>
         ) : (
           <motion.div variants={staggerContainer} initial="initial" animate="animate"

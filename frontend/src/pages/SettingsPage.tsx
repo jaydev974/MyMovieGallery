@@ -17,11 +17,22 @@ const THEME_ICONS: Record<string, string> = {
 
 export default function SettingsPage() {
   const { themeName, setTheme } = useThemeStore();
-  useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const toast = useToast();
   const [notifications, setNotifications] = useState({ recommendations: true, reviews: true, achievements: true, newsletter: false });
   const [language, setLanguage] = useState('en');
-  const [privacy, setPrivacy] = useState({ profilePublic: true, watchlistPublic: false, ratingsPublic: true });
+  const [privacySaving, setPrivacySaving] = useState(false);
+
+  async function toggleAccountPrivacy() {
+    if (!user) return;
+    setPrivacySaving(true);
+    try {
+      await updateProfile({ isPrivate: !user.isPrivate });
+      toast.success(user.isPrivate ? 'Your profile is now public' : 'Your profile is now private');
+    } catch (error) {
+      toast.error('Could not update privacy', error instanceof Error ? error.message : undefined);
+    } finally { setPrivacySaving(false); }
+  }
 
   function handleExport() {
     toast.success('Data exported!', 'Your data has been downloaded as JSON');
@@ -135,25 +146,22 @@ export default function SettingsPage() {
             🔒 Privacy
           </h2>
           <div className="space-y-4">
-            {Object.entries(privacy).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between">
-                <p className="text-sm font-medium capitalize" style={{ color: 'var(--text)' }}>
-                  {key.replace(/([A-Z])/g, ' $1').replace('Public', ' is public').trim()}
-                </p>
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Private account</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>Only you can view your watched movies, favorites, and ratings.</p></div>
                 <button
-                  onClick={() => setPrivacy((p) => ({ ...p, [key]: !value }))}
+                  disabled={privacySaving}
+                  onClick={toggleAccountPrivacy}
                   className="relative w-12 h-6 rounded-full transition-all"
-                  style={{ background: value ? 'var(--accent)' : 'var(--card-secondary)', border: '1px solid var(--border)' }}
+                  style={{ background: user?.isPrivate ? 'var(--accent)' : 'var(--card-secondary)', border: '1px solid var(--border)', opacity: privacySaving ? 0.6 : 1 }}
                 >
                   <motion.div
                     className="w-5 h-5 rounded-full absolute top-0.5"
-                    animate={{ left: value ? '24px' : '2px' }}
+                    animate={{ left: user?.isPrivate ? '24px' : '2px' }}
                     transition={{ duration: 0.2 }}
-                    style={{ background: value ? '#000' : 'var(--text-muted)' }}
+                    style={{ background: user?.isPrivate ? '#000' : 'var(--text-muted)' }}
                   />
                 </button>
               </div>
-            ))}
           </div>
         </div>
 

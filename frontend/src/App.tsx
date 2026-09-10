@@ -15,8 +15,13 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const initializeAuth = useAuthStore((state) => state.initialize);
   const loadMovies = useMovieStore((state) => state.loadMovies);
   const loadReviews = useMovieStore((state) => state.loadReviews);
+
+  useEffect(() => {
+    void initializeAuth();
+  }, [initializeAuth]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

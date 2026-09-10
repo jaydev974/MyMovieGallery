@@ -11,7 +11,7 @@ Backend, from the repository root:
 ```bash
 cd backend
 copy .env.example .env
-# Set OMDB_API_KEY in backend/.env
+# Set DATABASE_URL, JWT_SECRET_KEY, and optionally OMDB_API_KEY in backend/.env
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload
@@ -24,6 +24,8 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+For a separate frontend host, set `VITE_API_BASE_URL` in `frontend/.env` to the backend origin. When using the bundled Docker nginx proxy, leave it empty.
 
 Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
@@ -52,13 +54,19 @@ docker compose up --build -d
 
 Open `http://localhost:8080` for the app and `http://localhost:8000/health` for the API. The frontend uses the API for authentication, movies, ratings, reviews, watchlist, favorites, and watched history. Stop the stack with `docker compose down`; add `-v` only when you also want to delete the database volume.
 
+### Personalized recommendations
+
+Authenticated users load private recommendations from `GET /api/recommendations/me?limit=20`. The backend trains TF-IDF vectors over catalog title, genres, overview, director, cast, and keywords, then weights completed watches by rating, favorite status, and recency. It excludes watched and unavailable movies, diversifies repeated genres/directors, caches results in the existing recommendations table, and invalidates that cache after library preference changes. New users receive featured/popular cold-start results and watchlist signals when available.
+
+The Docker backend image runs `python scripts/train_recommender.py` during build. To retrain locally after catalog metadata changes, run it from `backend/`; no additional environment variable is needed. `OMDB_API_KEY` remains optional and is used only by the server-side metadata proxy.
+
 For a production-style Docker deployment, copy `.env.production.example` to `.env.production`, replace every placeholder, then run:
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
 ```
 
-The production Compose file keeps PostgreSQL and FastAPI private, runs the API with Gunicorn workers, disables API documentation, and requires explicit database credentials and CORS origins.
+The production Compose file keeps PostgreSQL and FastAPI private, runs the API with Gunicorn workers, disables API documentation, and requires explicit database credentials, JWT secrets, allowed hosts, and CORS origins.
 
 ## License
 

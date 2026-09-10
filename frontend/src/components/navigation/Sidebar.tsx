@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  HomeIcon, FilmIcon, BookmarkIcon, SparklesIcon,
+  HomeIcon, FilmIcon, BookmarkIcon, SparklesIcon, EyeIcon,
   ChartBarIcon, StarIcon, HeartIcon, Cog6ToothIcon,
   UserIcon, ArrowLeftOnRectangleIcon, ChevronLeftIcon,
   ChevronRightIcon, XMarkIcon,
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: HomeIcon },
   { path: '/movies', label: 'Movies', icon: FilmIcon },
   { path: '/watchlist', label: 'Watchlist', icon: BookmarkIcon },
+  { path: '/watched', label: 'Watched', icon: EyeIcon },
   { path: '/recommendations', label: 'Recommendations', icon: SparklesIcon },
   { path: '/analytics', label: 'Analytics', icon: ChartBarIcon },
   { path: '/reviews', label: 'Reviews', icon: StarIcon },

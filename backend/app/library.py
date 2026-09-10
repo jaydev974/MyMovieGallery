@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.db.session import get_db
 from app.models import Favorite, Movie, MovieGenre, Rating, Review, ReviewLike, User, WatchHistory, Watchlist, WatchlistItem
+from app.recommendations import invalidate_user_recommendations
 
 router = APIRouter(prefix="/api", tags=["library"])
 
@@ -96,6 +97,13 @@ async def _get_watchlist(user_id: uuid.UUID, session: AsyncSession) -> Watchlist
     return watchlist
 
 
+async def _user_library(user_id: uuid.UUID, session: AsyncSession) -> tuple[list[Movie], list[Movie], list[Movie]]:
+    watched = list(await session.scalars(select(Movie).join(WatchHistory).where(WatchHistory.user_id == user_id).distinct().order_by(Movie.title)))
+    favorites = list(await session.scalars(select(Movie).join(Favorite).where(Favorite.user_id == user_id).order_by(Favorite.created_at.desc())))
+    rated = list(await session.scalars(select(Movie).join(Rating).where(Rating.user_id == user_id)))
+    return watched, favorites, rated
+
+
 @router.get("/movies", response_model=list[MovieResponse])
 async def list_movies(
     search: str | None = Query(default=None, min_length=1),
@@ -131,6 +139,7 @@ async def add_to_watchlist(
     )
     if existing is None:
         session.add(WatchlistItem(id=uuid.uuid4(), watchlist_id=watchlist.id, movie_id=movie.id))
+        await invalidate_user_recommendations(session, user.id)
         await session.commit()
     return await _movie_response(session, movie)
 
@@ -145,6 +154,7 @@ async def remove_from_watchlist(
     await session.execute(
         delete(WatchlistItem).where(WatchlistItem.watchlist_id == watchlist.id, WatchlistItem.movie_id == movie_id)
     )
+    await invalidate_user_recommendations(session, user.id)
     await session.commit()
     return {"removed": True}
 
@@ -163,6 +173,7 @@ async def rate_movie(
         session.add(rating)
     else:
         rating.score = payload.score
+    await invalidate_user_recommendations(session, user.id)
     await session.commit()
     return {"movie_id": movie_id, "score": payload.score}
 
@@ -177,6 +188,7 @@ async def favorite_movie(
     existing = await session.scalar(select(Favorite).where(Favorite.user_id == user.id, Favorite.movie_id == movie.id))
     if existing is None:
         session.add(Favorite(id=uuid.uuid4(), user_id=user.id, movie_id=movie.id))
+        await invalidate_user_recommendations(session, user.id)
         await session.commit()
     return await _movie_response(session, movie)
 
@@ -189,6 +201,7 @@ async def unfavorite_movie(
 ) -> dict[str, bool]:
     await _get_movie(movie_id, session)
     await session.execute(delete(Favorite).where(Favorite.user_id == user.id, Favorite.movie_id == movie_id))
+    await invalidate_user_recommendations(session, user.id)
     await session.commit()
     return {"removed": True}
 
@@ -200,6 +213,9 @@ async def mark_movie_watched(
     user: User = Depends(get_current_user),
 ) -> MovieResponse:
     movie = await _get_movie(movie_id, session)
+    existing = await session.scalar(select(WatchHistory).where(WatchHistory.user_id == user.id, WatchHistory.movie_id == movie.id, WatchHistory.completed.is_(True)))
+    if existing is not None:
+        return await _movie_response(session, movie)
     session.add(
         WatchHistory(
             id=uuid.uuid4(),
@@ -210,6 +226,7 @@ async def mark_movie_watched(
             duration_minutes=movie.runtime_minutes,
         )
     )
+    await invalidate_user_recommendations(session, user.id)
     await session.commit()
     return await _movie_response(session, movie)
 
@@ -225,17 +242,7 @@ async def get_library(
             select(Movie).join(WatchlistItem, WatchlistItem.movie_id == Movie.id).where(WatchlistItem.watchlist_id == watchlist.id)
         )
     )
-    favorite_movies = list(
-        await session.scalars(select(Movie).join(Favorite, Favorite.movie_id == Movie.id).where(Favorite.user_id == user.id))
-    )
-    watched_movies = list(
-        await session.scalars(
-            select(Movie).join(WatchHistory, WatchHistory.movie_id == Movie.id).where(WatchHistory.user_id == user.id).distinct()
-        )
-    )
-    rated_movies = list(
-        await session.scalars(select(Movie).join(Rating, Rating.movie_id == Movie.id).where(Rating.user_id == user.id))
-    )
+    watched_movies, favorite_movies, rated_movies = await _user_library(user.id, session)
     await session.commit()
     return LibraryResponse(
         watchlist=[await _movie_response(session, movie) for movie in watchlist_movies],
@@ -308,6 +315,7 @@ async def create_review(
         session.add(Rating(id=uuid.uuid4(), user_id=user.id, movie_id=movie_id, score=payload.rating))
     else:
         rating.score = payload.rating
+    await invalidate_user_recommendations(session, user.id)
     await session.commit()
     await session.refresh(review)
     return ReviewResponse(
@@ -346,6 +354,7 @@ async def update_review(
         session.add(Rating(id=uuid.uuid4(), user_id=user.id, movie_id=review.movie_id, score=payload.rating))
     else:
         rating.score = payload.rating
+    await invalidate_user_recommendations(session, user.id)
     await session.commit()
     await session.refresh(review)
     return ReviewResponse(

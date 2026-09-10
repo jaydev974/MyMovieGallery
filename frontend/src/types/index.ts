@@ -57,6 +57,7 @@ export interface User {
   favoriteDirector: string;
   joinedDate: string;
   location?: string;
+  isPrivate: boolean;
   website?: string;
   achievements: Achievement[];
   watchStreak: number;

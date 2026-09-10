@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { register, isLoading } = useAuthStore();
   const toast = useToast();
@@ -36,7 +37,7 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!validate()) return;
     try {
-      await register(name, email, password);
+      await register(name, email, password, isPrivate);
       toast.success('Account created!', 'Welcome to MyMovieGallery 🎬');
       navigate('/dashboard');
     } catch {
@@ -76,6 +77,11 @@ export default function RegisterPage() {
             style={inputStyle(errors.name)} onFocus={focusStyle} onBlur={blurStyle(errors.name)} />
           {errors.name && <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.name}</p>}
         </div>
+
+        <label className="flex items-center gap-3 rounded-xl p-3 cursor-pointer" style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)' }}>
+          <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+          <span className="text-sm" style={{ color: 'var(--text)' }}>Make my account private</span>
+        </label>
 
         <div>
           <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Email</label>
