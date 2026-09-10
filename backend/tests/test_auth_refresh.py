@@ -16,6 +16,8 @@ from app.db.session import get_db
 from app.main import app
 from app.models import User
 
+_AUTH_REMEMBER_ME_COOKIE_NAME = "mmg-auth-remember-me"
+
 
 @pytest.fixture()
 def client() -> Iterator[TestClient]:
@@ -107,6 +109,7 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert logout_response.status_code == 200
     assert logout_response.json()["detail"] == "Logged out"
     assert client.cookies.get(REFRESH_TOKEN_COOKIE_NAME) is None
+    assert client.cookies.get(_AUTH_REMEMBER_ME_COOKIE_NAME) is None
 
     expired_refresh = client.post("/api/auth/refresh", headers=headers)
     assert expired_refresh.status_code == 401
