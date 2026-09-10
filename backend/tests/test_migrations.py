@@ -27,3 +27,4 @@ def test_alembic_head_creates_account_token_tables(tmp_path: Path, monkeypatch) 
     assert "refresh_tokens" in table_names
     assert "email_verification_tokens" in table_names
     assert "password_reset_tokens" in table_names
+    assert "remember_me" in inspect(sync_engine).get_columns("refresh_tokens")
