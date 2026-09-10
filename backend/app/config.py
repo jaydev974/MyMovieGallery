@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     database_url: str = "postgresql+asyncpg://mymoviegallery:mymoviegallery@localhost:5432/mymoviegallery"
+    database_pool_size: int = Field(default=5, ge=1, le=50)
+    database_max_overflow: int = Field(default=10, ge=0, le=100)
+    database_pool_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    database_pool_recycle_seconds: int = Field(default=1800, ge=60, le=86400)
+    request_max_body_bytes: int = Field(default=2_000_000, ge=1_024, le=50_000_000)
     jwt_secret_key: str = "local-development-secret-change-me"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
@@ -47,6 +52,8 @@ class Settings(BaseSettings):
                 raise ValueError("ALLOWED_HOSTS must contain explicit hosts in production")
             if not self.cors_origins or "*" in self.cors_origins:
                 raise ValueError("CORS_ORIGINS must contain explicit origins in production")
+            if self.api_docs_enabled is True:
+                raise ValueError("API docs must be disabled in production")
 
     @property
     def docs_enabled(self) -> bool:
