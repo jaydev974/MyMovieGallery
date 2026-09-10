@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import get_db
-from app.models import RefreshToken, User
+from app.models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
 from app.rate_limit import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -27,6 +27,8 @@ JWT_ALGORITHM = settings.jwt_algorithm
 JWT_SECRET_KEY = settings.jwt_secret_key
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = settings.password_reset_token_expire_minutes
+EMAIL_VERIFICATION_TOKEN_EXPIRE_DAYS = settings.email_verification_token_expire_days
 REFRESH_TOKEN_COOKIE_NAME = "mmg-refresh-token"
 
 
@@ -40,6 +42,18 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
+
+
+class EmailAddressRequest(BaseModel):
+    email: EmailStr
+
+
+class TokenRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=256)
+
+
+class PasswordResetConfirmRequest(TokenRequest):
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserResponse(BaseModel):
@@ -74,6 +88,11 @@ class LogoutResponse(BaseModel):
     detail: str
 
 
+class ActionResponse(BaseModel):
+    detail: str
+    token: str | None = None
+
+
 def _user_response(user: User) -> UserResponse:
     return UserResponse(
         id=user.id,
@@ -97,11 +116,11 @@ def _create_access_token(user_id: uuid.UUID) -> str:
     )
 
 
-def _create_refresh_token_value() -> str:
+def _create_token_value() -> str:
     return secrets.token_urlsafe(48)
 
 
-def _hash_refresh_token(token: str) -> str:
+def _hash_token_value(token: str) -> str:
     return sha256(token.encode("utf-8")).hexdigest()
 
 
@@ -128,17 +147,49 @@ def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(REFRESH_TOKEN_COOKIE_NAME, path="/")
 
 
+def _action_response(detail: str, token: str | None = None) -> ActionResponse:
+    if settings.environment == "production":
+        token = None
+    return ActionResponse(detail=detail, token=token)
+
+
 async def _store_refresh_token(session: AsyncSession, user_id: uuid.UUID) -> tuple[str, RefreshToken]:
-    refresh_token_value = _create_refresh_token_value()
+    refresh_token_value = _create_token_value()
     refresh_token = RefreshToken(
         id=uuid.uuid4(),
         user_id=user_id,
-        token_hash=_hash_refresh_token(refresh_token_value),
+        token_hash=_hash_token_value(refresh_token_value),
         expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
     session.add(refresh_token)
     await session.flush()
     return refresh_token_value, refresh_token
+
+
+async def _store_email_verification_token(session: AsyncSession, user_id: uuid.UUID) -> tuple[str, EmailVerificationToken]:
+    token_value = _create_token_value()
+    token = EmailVerificationToken(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        token_hash=_hash_token_value(token_value),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=EMAIL_VERIFICATION_TOKEN_EXPIRE_DAYS),
+    )
+    session.add(token)
+    await session.flush()
+    return token_value, token
+
+
+async def _store_password_reset_token(session: AsyncSession, user_id: uuid.UUID) -> tuple[str, PasswordResetToken]:
+    token_value = _create_token_value()
+    token = PasswordResetToken(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        token_hash=_hash_token_value(token_value),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
+    )
+    session.add(token)
+    await session.flush()
+    return token_value, token
 
 
 async def _issue_auth_response(response: Response, session: AsyncSession, user: User) -> AuthResponse:
@@ -170,7 +221,7 @@ async def _unique_username(base: str, session: AsyncSession) -> str:
 
 async def _load_refresh_token(session: AsyncSession, refresh_token_value: str) -> RefreshToken | None:
     refresh_token = await session.scalar(
-        select(RefreshToken).where(RefreshToken.token_hash == _hash_refresh_token(refresh_token_value))
+        select(RefreshToken).where(RefreshToken.token_hash == _hash_token_value(refresh_token_value))
     )
     if refresh_token is None:
         return None
@@ -183,6 +234,30 @@ async def _load_refresh_token(session: AsyncSession, refresh_token_value: str) -
     return refresh_token
 
 
+async def _load_email_verification_token(session: AsyncSession, token_value: str) -> EmailVerificationToken | None:
+    token = await session.scalar(
+        select(EmailVerificationToken).where(EmailVerificationToken.token_hash == _hash_token_value(token_value))
+    )
+    if token is None or token.used_at is not None or token.expires_at <= datetime.now(timezone.utc):
+        return None
+    user = await session.scalar(select(User).where(User.id == token.user_id, User.deleted_at.is_(None)))
+    if user is None or not user.is_active:
+        return None
+    return token
+
+
+async def _load_password_reset_token(session: AsyncSession, token_value: str) -> PasswordResetToken | None:
+    token = await session.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.token_hash == _hash_token_value(token_value))
+    )
+    if token is None or token.used_at is not None or token.expires_at <= datetime.now(timezone.utc):
+        return None
+    user = await session.scalar(select(User).where(User.id == token.user_id, User.deleted_at.is_(None)))
+    if user is None or not user.is_active:
+        return None
+    return token
+
+
 async def _refresh_user_session(session: AsyncSession, refresh_token: RefreshToken) -> tuple[User, str]:
     user = await session.scalar(select(User).where(User.id == refresh_token.user_id, User.deleted_at.is_(None)))
     if user is None or not user.is_active:
@@ -193,6 +268,15 @@ async def _refresh_user_session(session: AsyncSession, refresh_token: RefreshTok
     refresh_token.replaced_by_token_id = new_refresh_record.id
     await session.commit()
     return user, new_refresh_value
+
+
+async def _revoke_refresh_tokens(session: AsyncSession, user_id: uuid.UUID) -> None:
+    now = datetime.now(timezone.utc)
+    tokens = await session.scalars(
+        select(RefreshToken).where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
+    )
+    for token in tokens:
+        token.revoked_at = now
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -284,13 +368,96 @@ async def logout(
 ) -> LogoutResponse:
     if refresh_token:
         refresh_record = await session.scalar(
-            select(RefreshToken).where(RefreshToken.token_hash == _hash_refresh_token(refresh_token))
+            select(RefreshToken).where(RefreshToken.token_hash == _hash_token_value(refresh_token))
         )
         if refresh_record is not None and refresh_record.revoked_at is None:
             refresh_record.revoked_at = datetime.now(timezone.utc)
             await session.commit()
     _clear_refresh_cookie(response)
     return LogoutResponse(detail="Logged out")
+
+
+@router.post("/password-reset/request", response_model=ActionResponse)
+@limiter.limit("5/minute")
+async def request_password_reset(
+    request: Request,
+    payload: EmailAddressRequest,
+    session: AsyncSession = Depends(get_db),
+) -> ActionResponse:
+    email = str(payload.email).casefold()
+    user = await session.scalar(select(User).where(User.email == email, User.deleted_at.is_(None), User.is_active.is_(True)))
+    token_value: str | None = None
+    if user is not None:
+        token_value, _ = await _store_password_reset_token(session, user.id)
+        await session.commit()
+    return _action_response(
+        "If an account exists, a password reset link has been prepared.",
+        token_value,
+    )
+
+
+@router.post("/password-reset/confirm", response_model=MessageResponse)
+@limiter.limit("10/minute")
+async def confirm_password_reset(
+    request: Request,
+    payload: PasswordResetConfirmRequest,
+    response: Response,
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    token = await _load_password_reset_token(session, payload.token)
+    if token is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired password reset token")
+
+    user = await session.scalar(select(User).where(User.id == token.user_id, User.deleted_at.is_(None)))
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account unavailable")
+
+    user.password_hash = pwd_context.hash(payload.password)
+    token.used_at = datetime.now(timezone.utc)
+    await _revoke_refresh_tokens(session, user.id)
+    await session.commit()
+    _clear_refresh_cookie(response)
+    return MessageResponse(detail="Password updated")
+
+
+@router.post("/email-verification/request", response_model=ActionResponse)
+@limiter.limit("5/minute")
+async def request_email_verification(
+    request: Request,
+    payload: EmailAddressRequest,
+    session: AsyncSession = Depends(get_db),
+) -> ActionResponse:
+    email = str(payload.email).casefold()
+    user = await session.scalar(select(User).where(User.email == email, User.deleted_at.is_(None), User.is_active.is_(True)))
+    token_value: str | None = None
+    if user is not None and not user.is_verified:
+        token_value, _ = await _store_email_verification_token(session, user.id)
+        await session.commit()
+    return _action_response(
+        "If an account exists, an email verification link has been prepared.",
+        token_value,
+    )
+
+
+@router.post("/email-verification/confirm", response_model=MessageResponse)
+@limiter.limit("10/minute")
+async def confirm_email_verification(
+    request: Request,
+    payload: TokenRequest,
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    token = await _load_email_verification_token(session, payload.token)
+    if token is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired email verification token")
+
+    user = await session.scalar(select(User).where(User.id == token.user_id, User.deleted_at.is_(None)))
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account unavailable")
+
+    user.is_verified = True
+    token.used_at = datetime.now(timezone.utc)
+    await session.commit()
+    return MessageResponse(detail="Email verified")
 
 
 async def get_current_user(
