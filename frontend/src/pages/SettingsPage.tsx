@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
@@ -53,6 +54,28 @@ export default function SettingsPage() {
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Customize your experience</p>
         </div>
+
+        {user && !user.isVerified ? (
+          <div className="glass-card p-6" style={{ borderColor: 'var(--warning)' }}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-bold" style={{ fontFamily: 'Poppins, sans-serif', color: 'var(--text)' }}>
+                  ✉️ Verify your email
+                </h2>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Verified accounts are easier to recover and help keep your profile secure.
+                </p>
+              </div>
+              <Link
+                to={`/verify-email?email=${encodeURIComponent(user.email)}`}
+                className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold no-underline"
+                style={{ background: 'var(--accent)', color: '#000' }}
+              >
+                Verify now
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         {/* ─── Theme Selector ──────────────────────────────────────── */}
         <motion.div variants={staggerItem} initial="initial" animate="animate" className="glass-card p-6">
