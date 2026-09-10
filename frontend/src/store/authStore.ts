@@ -11,7 +11,7 @@ interface AuthState {
   isLoading: boolean;
   initialize: () => Promise<void>;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  register: (name: string, email: string, password: string, isPrivate?: boolean) => Promise<void>;
+  register: (name: string, email: string, password: string, isPrivate?: boolean, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setRememberMe: (rememberMe: boolean) => void;
@@ -104,11 +104,11 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (name: string, email: string, password: string, isPrivate = false) => {
+      register: async (name: string, email: string, password: string, isPrivate = false, rememberMe = false) => {
         set({ isLoading: true });
         try {
           const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password, is_private: isPrivate }, { suppressAuthExpired: true });
-          set({ token: response.access_token, user: mapApiUser(response.user), isAuthenticated: true, isLoading: false });
+          set({ token: response.access_token, user: mapApiUser(response.user), rememberMe, isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
           throw error;
