@@ -185,7 +185,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => authStorage),
       partialize: (state) => ({
         rememberMe: state.rememberMe,
-        token: state.rememberMe ? state.token : null,
+        token: state.token,
       }),
       migrate: (persistedState: unknown) => {
         const state = persistedState as Partial<AuthState> | null;
@@ -193,7 +193,7 @@ export const useAuthStore = create<AuthState>()(
         const rememberMe = state.rememberMe ?? false;
         return {
           rememberMe,
-          token: rememberMe ? state.token ?? null : null,
+          token: state.token ?? null,
           user: state.user ? { ...state.user, isVerified: state.user.isVerified ?? false } : null,
           isAuthenticated: Boolean(state.token && state.user),
           isLoading: false,
