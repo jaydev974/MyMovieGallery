@@ -74,7 +74,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   let response: Response;
 
   try {
-    response = await fetchWithRetry(`${API_BASE_URL}${path}`, { ...init, headers, signal: controller.signal }, retryAttempts);
+    response = await fetchWithRetry(`${API_BASE_URL}${path}`, { ...init, headers, credentials: 'include', signal: controller.signal }, retryAttempts);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new ApiError(408, 'The request timed out. Please try again.');
