@@ -70,7 +70,6 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const timeout = window.setTimeout(() => controller.abort(), 15_000);
   if (init.signal) init.signal.addEventListener('abort', () => controller.abort(), { once: true });
 
-  const method = (init.method || 'GET').toUpperCase();
   const retryAttempts = canRetryRequest(init) ? 3 : 1;
   let response: Response;
 
