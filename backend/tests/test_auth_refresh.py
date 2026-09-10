@@ -72,6 +72,12 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert login_body["token_type"] == "bearer"
     assert client.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
 
+    set_cookie = login_response.headers.get("set-cookie", "")
+    assert REFRESH_TOKEN_COOKIE_NAME in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Path=/" in set_cookie
+    assert "SameSite=Lax" in set_cookie
+
     refresh_response = client.post("/api/auth/refresh", headers=headers)
     assert refresh_response.status_code == 200
     refresh_body = refresh_response.json()
