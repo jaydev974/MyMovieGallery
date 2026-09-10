@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import AppRoutes from './routes/AppRoutes';
 import { ToastContainer } from './components/ui/Toast';
+import ErrorBoundary from './components/errors/ErrorBoundary';
 import { useTheme } from './hooks';
 import './styles/globals.css';
 import { useAuthStore } from './store/authStore';
@@ -29,13 +30,15 @@ export default function App() {
   }, [isAuthenticated, loadMovies, loadReviews]);
 
   return (
-    <BrowserRouter>
-      <ThemeInjector>
-        <AnimatePresence mode="wait">
-          <AppRoutes />
-        </AnimatePresence>
-        <ToastContainer />
-      </ThemeInjector>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ThemeInjector>
+          <AnimatePresence mode="wait">
+            <AppRoutes />
+          </AnimatePresence>
+          <ToastContainer />
+        </ThemeInjector>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
