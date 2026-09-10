@@ -1,7 +1,5 @@
 """MyMovieGallery backend package."""
 
-from .refresh_token_patch import patch_refresh_token_model
-
-patch_refresh_token_model()
+from . import refresh_token_patch  # noqa: F401
 
 __all__ = ["app"]
