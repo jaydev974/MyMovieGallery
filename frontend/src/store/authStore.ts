@@ -61,7 +61,7 @@ function mapApiUser(apiUser: AuthResponse['user']): User {
 const authStorage: StateStorage = {
   getItem: (name: string) => {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem(name) ?? sessionStorage.getItem(name);
+    return sessionStorage.getItem(name) ?? localStorage.getItem(name);
   },
   setItem: (name: string, value: string) => {
     if (typeof window === 'undefined') return;
