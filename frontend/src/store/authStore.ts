@@ -11,7 +11,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, isPrivate?: boolean) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
@@ -66,8 +66,17 @@ export const useAuthStore = create<AuthState>()(
         try {
           const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
           set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
+          return;
         } catch {
-          set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+          try {
+            const refreshed = await api.post<AuthResponse>('/api/auth/refresh');
+            set({ token: refreshed.access_token });
+            const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
+            set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
+            return;
+          } catch {
+            set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+          }
         }
       },
 
@@ -93,8 +102,14 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
-        set({ token: null, user: null, isAuthenticated: false });
+      logout: async () => {
+        try {
+          await api.post('/api/auth/logout');
+        } catch {
+          // Clear local state even if the remote session is already gone.
+        } finally {
+          set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+        }
       },
 
       updateProfile: async (updates) => {
