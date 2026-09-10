@@ -9,7 +9,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from slowapi import Limiter
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.session import get_db
 from app.models import User
+from app.rate_limit import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 security = HTTPBearer(auto_error=False)
@@ -24,16 +24,6 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 JWT_ALGORITHM = settings.jwt_algorithm
 JWT_SECRET_KEY = settings.jwt_secret_key
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
-
-
-def _rate_limit_key(request: Request) -> str:
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",", 1)[0].strip()
-    return request.client.host if request.client else "anonymous"
-
-
-limiter = Limiter(key_func=_rate_limit_key, default_limits=[])
 
 
 class RegisterRequest(BaseModel):
