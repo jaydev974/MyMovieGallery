@@ -84,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-          const response = await api.post<AuthResponse>('/api/auth/login', { email, password });
+          const response = await api.post<AuthResponse>('/api/auth/login', { email, password }, { suppressAuthExpired: true });
           set({ token: response.access_token, user: mapApiUser(response.user), isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>()(
       register: async (name: string, email: string, password: string, isPrivate = false) => {
         set({ isLoading: true });
         try {
-          const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password, is_private: isPrivate });
+          const response = await api.post<AuthResponse>('/api/auth/register', { name, email, password, is_private: isPrivate }, { suppressAuthExpired: true });
           set({ token: response.access_token, user: mapApiUser(response.user), isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
