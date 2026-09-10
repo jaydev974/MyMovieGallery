@@ -69,12 +69,7 @@ export const useAuthStore = create<AuthState>()(
       initialize: async () => {
         set({ isLoading: true });
         try {
-          const { token, rememberMe } = get();
-
-          if (!token && !rememberMe) {
-            set({ token: null, user: null, isAuthenticated: false, isLoading: false });
-            return;
-          }
+          const { token } = get();
 
           if (token) {
             try {
@@ -82,13 +77,8 @@ export const useAuthStore = create<AuthState>()(
               set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
               return;
             } catch {
-              // Fall through and try the refresh cookie only when the user asked us to remember them.
+              // Fall through and try the refresh cookie.
             }
-          }
-
-          if (!rememberMe) {
-            set({ token: null, user: null, isAuthenticated: false, isLoading: false });
-            return;
           }
 
           const refreshed = await api.post<AuthResponse>('/api/auth/refresh', undefined, { suppressAuthExpired: true });
