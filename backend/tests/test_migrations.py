@@ -20,11 +20,13 @@ def test_alembic_head_creates_account_token_tables(tmp_path: Path, monkeypatch) 
 
     sync_engine = create_engine(f"sqlite:///{database_path}")
     try:
-        table_names = inspect(sync_engine).get_table_names()
+        inspector = inspect(sync_engine)
+        table_names = inspector.get_table_names()
+        refresh_token_columns = {column["name"] for column in inspector.get_columns("refresh_tokens")}
     finally:
         sync_engine.dispose()
 
     assert "refresh_tokens" in table_names
     assert "email_verification_tokens" in table_names
     assert "password_reset_tokens" in table_names
-    assert "remember_me" in inspect(sync_engine).get_columns("refresh_tokens")
+    assert "remember_me" in refresh_token_columns
