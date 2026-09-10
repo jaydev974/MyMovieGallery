@@ -57,26 +57,25 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       initialize: async () => {
-        const { token } = get();
-        if (!token) {
-          set({ isLoading: false });
-          return;
-        }
         set({ isLoading: true });
         try {
+          const { token } = get();
+          if (token) {
+            try {
+              const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
+              set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
+              return;
+            } catch {
+              // Fall through and try the refresh cookie.
+            }
+          }
+
+          const refreshed = await api.post<AuthResponse>('/api/auth/refresh');
+          set({ token: refreshed.access_token });
           const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
           set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
-          return;
         } catch {
-          try {
-            const refreshed = await api.post<AuthResponse>('/api/auth/refresh');
-            set({ token: refreshed.access_token });
-            const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
-            set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
-            return;
-          } catch {
-            set({ token: null, user: null, isAuthenticated: false, isLoading: false });
-          }
+          set({ token: null, user: null, isAuthenticated: false, isLoading: false });
         }
       },
 
