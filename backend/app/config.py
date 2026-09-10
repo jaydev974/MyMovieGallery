@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
     refresh_token_expire_days: int = Field(default=7, ge=1, le=90)
+    password_reset_token_expire_minutes: int = Field(default=60, ge=15, le=1440)
+    email_verification_token_expire_days: int = Field(default=1, ge=1, le=30)
     omdb_api_key: str | None = None
     omdb_timeout_seconds: float = Field(default=8.0, gt=0, le=30)
 
