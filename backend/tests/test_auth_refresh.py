@@ -70,6 +70,7 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert login_response.status_code == 200
     login_body = login_response.json()
     assert login_body["token_type"] == "bearer"
+    assert login_body["user"]["is_verified"] is True
     assert client.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
 
     set_cookie = login_response.headers.get("set-cookie", "")
@@ -78,11 +79,16 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert "Path=/" in set_cookie
     assert "SameSite=Lax" in set_cookie
 
+    me_response = client.get("/api/auth/me", headers=headers)
+    assert me_response.status_code == 200
+    assert me_response.json()["is_verified"] is True
+
     refresh_response = client.post("/api/auth/refresh", headers=headers)
     assert refresh_response.status_code == 200
     refresh_body = refresh_response.json()
     assert refresh_body["access_token"] != login_body["access_token"]
     assert refresh_body["user"]["email"] == "auth@example.com"
+    assert refresh_body["user"]["is_verified"] is True
 
     logout_response = client.post("/api/auth/logout", headers=headers)
     assert logout_response.status_code == 200
