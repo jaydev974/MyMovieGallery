@@ -85,18 +85,22 @@ def render_prometheus_metrics() -> str:
         )
 
         for metric_name, series_map in _COUNTERS.items():
-            help_name = metric_name.replace("mymoviegallery_", "").replace("_total", " total")
-            lines.append(f"# HELP {metric_name} {help_name.replace('_', ' ')}.")
+            help_name = metric_name.removeprefix("mymoviegallery_").replace("_total", "").replace("_", " ")
+            lines.append(f"# HELP {metric_name} {help_name}.")
             lines.append(f"# TYPE {metric_name} counter")
             for labels, value in series_map.items():
                 lines.append(f"{metric_name}{_format_labels(labels)} {value}")
 
+        histogram_help = {
+            "mymoviegallery_http_request_duration_seconds": "HTTP request duration histogram.",
+            "mymoviegallery_db_query_duration_seconds": "Database query duration histogram.",
+        }
         histogram_buckets = {
             "mymoviegallery_http_request_duration_seconds": _REQUEST_LATENCY_BUCKETS,
             "mymoviegallery_db_query_duration_seconds": _DB_LATENCY_BUCKETS,
         }
         for metric_name, series_map in _HISTOGRAMS.items():
-            lines.append(f"# HELP {metric_name} Request duration histogram.")
+            lines.append(f"# HELP {metric_name} {histogram_help[metric_name]}")
             lines.append(f"# TYPE {metric_name} histogram")
             buckets = histogram_buckets[metric_name]
             for labels, series in series_map.items():
