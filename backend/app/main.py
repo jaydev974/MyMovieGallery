@@ -6,6 +6,9 @@ from functools import lru_cache
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy import text
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.status import HTTP_413_REQUEST_ENTITY_TOO_LARGE
@@ -13,7 +16,7 @@ from starlette.status import HTTP_413_REQUEST_ENTITY_TOO_LARGE
 from app.api.metadata import router as metadata_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as personalized_recommendations_router
-from app.auth import router as auth_router
+from app.auth import limiter as auth_limiter, router as auth_router
 from app.config import settings
 from app.db.session import engine
 from app.library import router as library_router
@@ -31,6 +34,8 @@ _SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://www.omdbapi.com; font-src 'self' data:",
 }
 
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
+
 app = FastAPI(
     title="MyMovieGallery API",
     version=settings.app_version,
@@ -38,6 +43,8 @@ app = FastAPI(
     redoc_url="/redoc" if settings.docs_enabled else None,
     openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -124,7 +131,9 @@ def get_recommendation_model() -> RecommendationModel:
 
 
 @app.get("/api/recommendations", tags=["recommendations"])
+@limiter.limit("30/minute")
 async def recommendations(
+    request: Request,
     title: str = Query(..., min_length=1, description="Title from the trained movie catalog"),
     limit: int = Query(5, ge=1, le=20),
 ) -> dict[str, object]:
