@@ -35,6 +35,8 @@ Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
 Accounts can be public or private. Public profiles are available at `/users/:username`; private profiles disclose no library activity to other visitors. Set `OMDB_API_KEY` in `backend/.env` for local development, or in the root `.env` used by Docker Compose, to enable the server-side `GET /api/metadata/omdb/search?query=...` metadata lookup. The key is intentionally never sent to the browser.
 
+Authentication now uses short-lived access tokens plus an HttpOnly refresh-token cookie. `POST /api/auth/login` and `POST /api/auth/register` issue both tokens, `POST /api/auth/refresh` rotates the cookie and returns a new access token, and `POST /api/auth/logout` revokes the refresh token and clears the cookie. The frontend sends credentials with API requests so the refresh cookie can restore a session automatically when an access token expires.
+
 The focused API routers live in `backend/app/api/`:
 
 - `profiles.py` owns public profile and watched-history access rules.
