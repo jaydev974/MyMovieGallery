@@ -6,19 +6,30 @@ from functools import lru_cache
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.status import HTTP_413_REQUEST_ENTITY_TOO_LARGE
 
-from app.auth import router as auth_router
 from app.api.metadata import router as metadata_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as personalized_recommendations_router
-from app.library import router as library_router
-from app.recommendations import RecommendationModel
+from app.auth import router as auth_router
 from app.config import settings
 from app.db.session import engine
-from sqlalchemy import text
+from app.library import router as library_router
+from app.recommendations import RecommendationModel
 
 logger = logging.getLogger("mymoviegallery.api")
+
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://www.omdbapi.com; font-src 'self' data:",
+}
 
 app = FastAPI(
     title="MyMovieGallery API",
@@ -47,14 +58,48 @@ app.include_router(personalized_recommendations_router)
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     started = time.perf_counter()
+
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > settings.request_max_body_bytes:
+        response = JSONResponse(status_code=HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": "Request body too large"})
+        response.headers["X-Request-ID"] = request_id
+        for name, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        if settings.environment == "production":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        logger.warning(
+            "request rejected: body too large",
+            extra={"request_id": request_id, "path": request.url.path, "content_length": content_length},
+        )
+        return response
+
     try:
         response = await call_next(request)
     except Exception:
         logger.exception("Unhandled request error", extra={"request_id": request_id, "path": request.url.path})
         response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
     response.headers["X-Request-ID"] = request_id
-    logger.info("request complete", extra={"request_id": request_id, "path": request.url.path, "status_code": response.status_code, "duration_ms": round((time.perf_counter() - started) * 1000, 2)})
+    for name, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    if settings.environment == "production":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
+    logger.info(
+        "request complete",
+        extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+        },
+    )
     return response
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    await engine.dispose()
 
 
 @app.get("/health", tags=["system"])
