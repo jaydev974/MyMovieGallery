@@ -7,7 +7,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, inspect
 
 
-def test_alembic_head_creates_refresh_tokens_table(tmp_path: Path, monkeypatch) -> None:
+def test_alembic_head_creates_account_token_tables(tmp_path: Path, monkeypatch) -> None:
     database_path = tmp_path / "migrations.sqlite3"
     database_url = f"sqlite+aiosqlite:///{database_path}"
     monkeypatch.setenv("DATABASE_URL", database_url)
@@ -25,3 +25,5 @@ def test_alembic_head_creates_refresh_tokens_table(tmp_path: Path, monkeypatch) 
         sync_engine.dispose()
 
     assert "refresh_tokens" in table_names
+    assert "email_verification_tokens" in table_names
+    assert "password_reset_tokens" in table_names
