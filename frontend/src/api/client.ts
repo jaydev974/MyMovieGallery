@@ -17,17 +17,24 @@ interface ApiRequestOptions {
 }
 
 function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+
   const keys = ['mmg-auth-v3', 'mmg-auth-v2'];
-  for (const key of keys) {
-    const persisted = localStorage.getItem(key);
-    if (!persisted) continue;
-    try {
-      const token = (JSON.parse(persisted) as { state?: { token?: string } }).state?.token;
-      if (token) return token;
-    } catch {
-      // Ignore malformed persisted state and try the next key.
+  const storages = [localStorage, sessionStorage];
+
+  for (const storage of storages) {
+    for (const key of keys) {
+      const persisted = storage.getItem(key);
+      if (!persisted) continue;
+      try {
+        const token = (JSON.parse(persisted) as { state?: { token?: string } }).state?.token;
+        if (token) return token;
+      } catch {
+        // Ignore malformed persisted state and try the next one.
+      }
     }
   }
+
   return null;
 }
 
