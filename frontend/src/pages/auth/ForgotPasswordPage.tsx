@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useToast } from '../../components/ui/useToast';
+import { api } from '../../api/client';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
@@ -13,10 +15,18 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     if (!email) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setSent(true);
-    toast.success('Reset link sent!', 'Check your email inbox');
+    try {
+      const response = await api.post<{ detail: string; token?: string | null }>('/api/auth/password-reset/request', {
+        email,
+      });
+      setResetToken(response.token ?? null);
+      setSent(true);
+      toast.success('Reset instructions prepared', 'Check your email inbox or copy the development token below.');
+    } catch (error) {
+      toast.error('Unable to request reset', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -27,7 +37,7 @@ export default function ForgotPasswordPage() {
           {sent ? 'Check your email' : 'Forgot Password?'}
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {sent ? `We sent a reset link to ${email}` : "No worries, we'll send you reset instructions."}
+          {sent ? `We prepared reset instructions for ${email}` : "No worries, we'll send you reset instructions."}
         </p>
       </div>
 
@@ -35,18 +45,26 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com" required
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
               className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
               style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)', color: 'var(--text)' }}
               onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; e.target.style.boxShadow = '0 0 0 3px var(--glow)'; }}
               onBlur={(e) => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
             />
           </div>
-          <motion.button type="submit" disabled={loading}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          <motion.button
+            type="submit"
+            disabled={loading}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="w-full py-3 rounded-xl font-bold text-sm"
-            style={{ background: 'var(--accent)', color: '#000', opacity: loading ? 0.7 : 1 }}>
+            style={{ background: 'var(--accent)', color: '#000', opacity: loading ? 0.7 : 1 }}
+          >
             {loading ? 'Sending…' : 'Send Reset Link'}
           </motion.button>
         </form>
@@ -57,11 +75,25 @@ export default function ForgotPasswordPage() {
             <span className="text-2xl">✓</span>
           </div>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            Didn't receive the email? Check spam or try again.
+            Didn&apos;t receive the email? Check spam or try again.
           </p>
-          <button onClick={() => setSent(false)}
+          {resetToken ? (
+            <div className="mb-6 rounded-2xl border px-4 py-3 text-left text-xs font-mono leading-5" style={{ background: 'var(--card-secondary)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>Development reset token</p>
+              <p className="break-all">{resetToken}</p>
+              <p className="mt-3 text-[11px] leading-5" style={{ color: 'var(--text-secondary)' }}>
+                Open <Link to={`/reset-password?token=${encodeURIComponent(resetToken)}`} style={{ color: 'var(--accent)' }}>Reset Password</Link> or paste this token into the reset form.
+              </p>
+            </div>
+          ) : null}
+          <button
+            onClick={() => {
+              setSent(false);
+              setResetToken(null);
+            }}
             className="px-6 py-2 rounded-xl text-sm font-semibold"
-            style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)', color: 'var(--text)' }}>
+            style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)', color: 'var(--text)' }}
+          >
             Try again
           </button>
         </div>
