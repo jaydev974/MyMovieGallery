@@ -64,7 +64,7 @@ export const useAuthStore = create<AuthState>()(
           const { token } = get();
           if (token) {
             try {
-              const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
+              const apiUser = await api.get<AuthResponse['user']>('/api/auth/me', { suppressAuthExpired: true });
               set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
               return;
             } catch {
