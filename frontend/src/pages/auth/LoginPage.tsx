@@ -19,7 +19,6 @@ export default function LoginPage() {
     if (!email) errs.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(email)) errs.email = 'Invalid email address';
     if (!password) errs.password = 'Password is required';
-    else if (password.length < 6) errs.password = 'Password must be at least 6 characters';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
