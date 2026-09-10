@@ -59,12 +59,20 @@ def client() -> Iterator[TestClient]:
         asyncio.run(engine.dispose())
 
 
+def _set_cookie_header(headers: object) -> str:
+    # httpx exposes get_list(); keep a small fallback for compatibility.
+    if hasattr(headers, "get_list"):
+        values = headers.get_list("set-cookie")
+        return values[-1] if values else ""
+    return getattr(headers, "get", lambda *_: "")("set-cookie", "")
+
+
 def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     headers = {"Host": "localhost"}
 
     login_response = client.post(
         "/api/auth/login",
-        json={"email": "auth@example.com", "password": "StrongPass123!"},
+        json={"email": "auth@example.com", "password": "StrongPass123!", "remember_me": False},
         headers=headers,
     )
     assert login_response.status_code == 200
@@ -73,11 +81,12 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert login_body["user"]["is_verified"] is True
     assert client.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
 
-    set_cookie = login_response.headers.get("set-cookie", "")
+    set_cookie = _set_cookie_header(login_response.headers)
     assert REFRESH_TOKEN_COOKIE_NAME in set_cookie
     assert "HttpOnly" in set_cookie
     assert "Path=/" in set_cookie
     assert "SameSite=Lax" in set_cookie
+    assert "Max-Age=" not in set_cookie
 
     me_response = client.get("/api/auth/me", headers=headers)
     assert me_response.status_code == 200
@@ -89,6 +98,10 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert refresh_body["access_token"] != login_body["access_token"]
     assert refresh_body["user"]["email"] == "auth@example.com"
     assert refresh_body["user"]["is_verified"] is True
+
+    refresh_set_cookie = _set_cookie_header(refresh_response.headers)
+    assert REFRESH_TOKEN_COOKIE_NAME in refresh_set_cookie
+    assert "Max-Age=" not in refresh_set_cookie
 
     logout_response = client.post("/api/auth/logout", headers=headers)
     assert logout_response.status_code == 200
@@ -107,6 +120,7 @@ def test_register_returns_unverified_account(client: TestClient) -> None:
             "email": "newuser@example.com",
             "password": "StrongPass123!",
             "is_private": False,
+            "remember_me": True,
         },
         headers={"Host": "localhost"},
     )
@@ -115,3 +129,7 @@ def test_register_returns_unverified_account(client: TestClient) -> None:
     body = response.json()
     assert body["user"]["email"] == "newuser@example.com"
     assert body["user"]["is_verified"] is False
+
+    set_cookie = _set_cookie_header(response.headers)
+    assert REFRESH_TOKEN_COOKIE_NAME in set_cookie
+    assert "Max-Age=" in set_cookie
