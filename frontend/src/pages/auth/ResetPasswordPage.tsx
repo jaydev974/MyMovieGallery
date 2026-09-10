@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useToast } from '../../components/ui/useToast';
@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
   const [updated, setUpdated] = useState(false);
   const toast = useToast();
 
-  const canSubmit = useMemo(() => token.trim() && password.length >= 8 && password === confirmPassword, [token, password, confirmPassword]);
+  const canSubmit = token.trim().length > 0 && password.length >= 8 && password === confirmPassword;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
