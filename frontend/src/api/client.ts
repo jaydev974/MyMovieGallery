@@ -17,13 +17,18 @@ interface ApiRequestOptions {
 }
 
 function getToken(): string | null {
-  const persisted = localStorage.getItem('mmg-auth-v2');
-  if (!persisted) return null;
-  try {
-    return (JSON.parse(persisted) as { state?: { token?: string } }).state?.token || null;
-  } catch {
-    return null;
+  const keys = ['mmg-auth-v3', 'mmg-auth-v2'];
+  for (const key of keys) {
+    const persisted = localStorage.getItem(key);
+    if (!persisted) continue;
+    try {
+      const token = (JSON.parse(persisted) as { state?: { token?: string } }).state?.token;
+      if (token) return token;
+    } catch {
+      // Ignore malformed persisted state and try the next key.
+    }
   }
+  return null;
 }
 
 function isRetriableStatus(status: number): boolean {
