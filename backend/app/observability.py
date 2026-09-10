@@ -30,10 +30,14 @@ def _labels_key(labels: dict[str, str] | None) -> tuple[tuple[str, str], ...]:
     return tuple(sorted((str(key), str(value)) for key, value in labels.items()))
 
 
+def _escape_label_value(value: str) -> str:
+    return value.replace("\\", r"\\").replace('"', r'\"')
+
+
 def _format_labels(labels: tuple[tuple[str, str], ...]) -> str:
     if not labels:
         return ""
-    parts = [f'{key}="{value.replace("\\", "\\\\").replace("\"", "\\\"")}"' for key, value in labels]
+    parts = [f'{key}="{_escape_label_value(value)}"' for key, value in labels]
     return "{" + ",".join(parts) + "}"
 
 
@@ -81,7 +85,7 @@ def render_prometheus_metrics() -> str:
         )
 
         for metric_name, series_map in _COUNTERS.items():
-            help_name = metric_name.replace("_total", "").replace("mymoviegallery_", "")
+            help_name = metric_name.replace("mymoviegallery_", "").replace("_total", " total")
             lines.append(f"# HELP {metric_name} {help_name.replace('_', ' ')}.")
             lines.append(f"# TYPE {metric_name} counter")
             for labels, value in series_map.items():
@@ -94,10 +98,10 @@ def render_prometheus_metrics() -> str:
         for metric_name, series_map in _HISTOGRAMS.items():
             lines.append(f"# HELP {metric_name} Request duration histogram.")
             lines.append(f"# TYPE {metric_name} histogram")
+            buckets = histogram_buckets[metric_name]
             for labels, series in series_map.items():
-                buckets = histogram_buckets[metric_name]
                 cumulative = 0
-                for bucket_value, count in zip(buckets, series.buckets, strict=True):
+                for bucket_value, count in zip(buckets, series.buckets):
                     cumulative += count
                     bucket_labels = labels + (("le", str(bucket_value)),)
                     lines.append(f"{metric_name}_bucket{_format_labels(bucket_labels)} {cumulative}")
