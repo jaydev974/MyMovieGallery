@@ -93,6 +93,10 @@ class ActionResponse(BaseModel):
     token: str | None = None
 
 
+class MessageResponse(BaseModel):
+    detail: str
+
+
 def _user_response(user: User) -> UserResponse:
     return UserResponse(
         id=user.id,
