@@ -47,6 +47,7 @@ export default function AppRoutes() {
         <Route element={<RootLayout />}>
           <Route index element={<LandingPage />} />
           <Route path="/users/:username" element={<PublicProfilePage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
         </Route>
 
         {/* Auth Routes */}
@@ -55,7 +56,6 @@ export default function AppRoutes() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
         </Route>
 
         {/* Protected App Routes */}
