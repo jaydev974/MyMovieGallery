@@ -31,7 +31,7 @@ The backend is a separate FastAPI service. It exposes `/health`, `/ready`, `/met
 5. Run `alembic upgrade head` from the `backend` directory before enabling API traffic.
 6. Set `ENVIRONMENT=production`, `DEBUG=false`, explicit `ALLOWED_HOSTS`, `CORS_ORIGINS`, and a random `JWT_SECRET_KEY` of at least 32 characters.
 7. Set `API_DOCS_ENABLED=false` unless you have a controlled internal need to expose Swagger or ReDoc.
-8. Optionally tune `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT_SECONDS`, `DATABASE_POOL_RECYCLE_SECONDS`, `REQUEST_MAX_BODY_BYTES`, and `REFRESH_TOKEN_EXPIRE_DAYS` for your hosting plan.
+8. Optionally tune `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT_SECONDS`, `DATABASE_POOL_RECYCLE_SECONDS`, `REQUEST_MAX_BODY_BYTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES`, and `EMAIL_VERIFICATION_TOKEN_EXPIRE_DAYS` for your hosting plan.
 9. Confirm `https://<service>.onrender.com/health` returns `{"status":"ok"}`, `/ready` returns a database-backed ready response, and `/metrics` returns Prometheus-formatted metrics.
 
 Set `CORS_ORIGINS` to the deployed frontend origin and set `VITE_API_BASE_URL` to the deployed API origin before connecting a production frontend.
