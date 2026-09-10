@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthState>()(
         } catch {
           // Clear local state even if the remote session is already gone.
         } finally {
-          set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+          set({ token: null, user: null, rememberMe: false, isAuthenticated: false, isLoading: false });
         }
       },
 
