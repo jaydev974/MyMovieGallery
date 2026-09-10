@@ -6,7 +6,7 @@ from functools import lru_cache
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import text
@@ -16,10 +16,11 @@ from starlette.status import HTTP_413_REQUEST_ENTITY_TOO_LARGE
 from app.api.metadata import router as metadata_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as personalized_recommendations_router
-from app.auth import limiter as auth_limiter, router as auth_router
+from app.auth import router as auth_router
 from app.config import settings
 from app.db.session import engine
 from app.library import router as library_router
+from app.rate_limit import limiter
 from app.recommendations import RecommendationModel
 
 logger = logging.getLogger("mymoviegallery.api")
@@ -33,8 +34,6 @@ _SECURITY_HEADERS = {
     "Cross-Origin-Resource-Policy": "same-origin",
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://www.omdbapi.com; font-src 'self' data:",
 }
-
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 app = FastAPI(
     title="MyMovieGallery API",
