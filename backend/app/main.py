@@ -1,11 +1,11 @@
-import logging
 import time
 import uuid
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
@@ -19,10 +19,16 @@ from app.auth import router as auth_router
 from app.config import settings
 from app.db.session import engine
 from app.library import router as library_router
+from app.logging_config import configure_logging
+from app.observability import record_db_query, record_http_request, render_prometheus_metrics
 from app.rate_limit import limiter
 from app.recommendations import RecommendationModel
 
-logger = logging.getLogger("mymoviegallery.api")
+configure_logging(settings.environment)
+
+import structlog
+
+logger = structlog.get_logger("mymoviegallery.api")
 
 _SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -43,6 +49,7 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(GZipMiddleware, minimum_size=1_000)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,6 +66,12 @@ app.include_router(metadata_router)
 app.include_router(personalized_recommendations_router)
 
 
+def _normalized_route_path(request: Request) -> str:
+    route = request.scope.get("route")
+    path = getattr(route, "path_format", None) or getattr(route, "path", None)
+    return path or request.url.path
+
+
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
@@ -72,16 +85,14 @@ async def request_context(request: Request, call_next):
             response.headers.setdefault(name, value)
         if settings.environment == "production":
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        logger.warning(
-            "request rejected: body too large",
-            extra={"request_id": request_id, "path": request.url.path, "content_length": content_length},
-        )
+        logger.warning("request rejected: body too large", request_id=request_id, path=request.url.path, content_length=content_length)
+        record_http_request(request.method, request.url.path, response.status_code, time.perf_counter() - started)
         return response
 
     try:
         response = await call_next(request)
     except Exception:
-        logger.exception("Unhandled request error", extra={"request_id": request_id, "path": request.url.path})
+        logger.exception("Unhandled request error", request_id=request_id, path=request.url.path)
         response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     response.headers["X-Request-ID"] = request_id
@@ -90,14 +101,15 @@ async def request_context(request: Request, call_next):
     if settings.environment == "production":
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
+    duration_seconds = time.perf_counter() - started
+    normalized_path = _normalized_route_path(request)
+    record_http_request(request.method, normalized_path, response.status_code, duration_seconds)
     logger.info(
         "request complete",
-        extra={
-            "request_id": request_id,
-            "path": request.url.path,
-            "status_code": response.status_code,
-            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-        },
+        request_id=request_id,
+        path=normalized_path,
+        status_code=response.status_code,
+        duration_ms=round(duration_seconds * 1000, 2),
     )
     return response
 
@@ -114,13 +126,21 @@ async def health_check() -> dict[str, str]:
 
 @app.get("/ready", tags=["system"])
 async def readiness_check() -> dict[str, str]:
+    started = time.perf_counter()
     try:
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
     except Exception:
         logger.exception("readiness check failed")
+        record_db_query("readiness", time.perf_counter() - started, success=False)
         return JSONResponse(status_code=503, content={"status": "not_ready", "service": "mymoviegallery-api"})
+    record_db_query("readiness", time.perf_counter() - started, success=True)
     return {"status": "ready", "service": "mymoviegallery-api"}
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics() -> Response:
+    return Response(render_prometheus_metrics(), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @lru_cache(maxsize=1)
