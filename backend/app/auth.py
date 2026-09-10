@@ -68,6 +68,7 @@ class UserResponse(BaseModel):
     location: str | None = None
     avatar_url: str | None = None
     is_private: bool
+    is_verified: bool
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -108,6 +109,7 @@ def _user_response(user: User) -> UserResponse:
         location=user.location,
         avatar_url=user.avatar_url,
         is_private=user.is_private,
+        is_verified=user.is_verified,
     )
 
 
