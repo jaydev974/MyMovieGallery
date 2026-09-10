@@ -62,14 +62,17 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const { token } = get();
-          if (token) {
-            try {
-              const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
-              set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
-              return;
-            } catch {
-              // Fall through and try the refresh cookie.
-            }
+          if (!token) {
+            set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+            return;
+          }
+
+          try {
+            const apiUser = await api.get<AuthResponse['user']>('/api/auth/me');
+            set({ user: mapApiUser(apiUser), isAuthenticated: true, isLoading: false });
+            return;
+          } catch {
+            // Fall through and try the refresh cookie.
           }
 
           const refreshed = await api.post<AuthResponse>('/api/auth/refresh');
@@ -120,7 +123,20 @@ export const useAuthStore = create<AuthState>()(
         set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private, isVerified: apiUser.is_verified } });
       },
     }),
-    { name: 'mmg-auth-v2' }
+    {
+      name: 'mmg-auth-v2',
+      version: 3,
+      migrate: (persistedState: unknown) => {
+        const state = persistedState as Partial<AuthState> | null;
+        if (!state) return state;
+        return {
+          ...state,
+          user: state.user ? { ...state.user, isVerified: state.user.isVerified ?? false } : null,
+          isAuthenticated: Boolean(state.token && state.user),
+          isLoading: false,
+        } satisfies Partial<AuthState>;
+      },
+    }
   )
 );
 
