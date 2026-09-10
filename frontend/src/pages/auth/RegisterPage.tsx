@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { register, isLoading } = useAuthStore();
   const toast = useToast();
@@ -41,7 +42,7 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!validate()) return;
     try {
-      await register(name, email, password, isPrivate);
+      await register(name, email, password, isPrivate, rememberMe);
       toast.success('Account created!', 'Welcome to MyMovieGallery 🎬');
       navigate('/dashboard');
     } catch {
@@ -92,6 +93,11 @@ export default function RegisterPage() {
         <label className="flex items-center gap-3 rounded-xl p-3 cursor-pointer" style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)' }}>
           <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
           <span className="text-sm" style={{ color: 'var(--text)' }}>Make my account private</span>
+        </label>
+
+        <label className="flex items-center gap-3 rounded-xl p-3 cursor-pointer" style={{ background: 'var(--card-secondary)', border: '1px solid var(--border)' }}>
+          <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+          <span className="text-sm" style={{ color: 'var(--text)' }}>Remember me on this device</span>
         </label>
 
         <div>
