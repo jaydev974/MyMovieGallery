@@ -20,7 +20,7 @@ function getToken(): string | null {
   if (typeof window === 'undefined') return null;
 
   const keys = ['mmg-auth-v3', 'mmg-auth-v2'];
-  const storages = [localStorage, sessionStorage];
+  const storages = [sessionStorage, localStorage];
 
   for (const storage of storages) {
     for (const key of keys) {
