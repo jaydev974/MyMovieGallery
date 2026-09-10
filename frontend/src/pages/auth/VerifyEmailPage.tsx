@@ -41,7 +41,7 @@ export default function VerifyEmailPage() {
     if (!canConfirm) return;
     setLoadingConfirm(true);
     try {
-      await api.post('/api/auth/email-verification/confirm', { token: token.trim() });
+      await api.post('/api/auth/email-verification/confirm', { token: token.trim() }, { suppressAuthExpired: true });
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {
         useAuthStore.setState({ user: { ...currentUser, isVerified: true } });
