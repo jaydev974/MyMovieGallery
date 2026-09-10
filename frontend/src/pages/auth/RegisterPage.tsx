@@ -11,6 +11,10 @@ const PASSWORD_RULES = [
   { label: 'One number', test: (p: string) => /\d/.test(p) },
 ];
 
+function isPasswordStrongEnough(password: string): boolean {
+  return PASSWORD_RULES.every((rule) => rule.test(password));
+}
+
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -28,7 +32,7 @@ export default function RegisterPage() {
     if (!email) errs.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(email)) errs.email = 'Invalid email';
     if (!password) errs.password = 'Password is required';
-    else if (password.length < 8) errs.password = 'Too short';
+    else if (!isPasswordStrongEnough(password)) errs.password = 'Use 8+ characters with one uppercase letter and one number';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -72,9 +76,16 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Full Name</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Alex Cinema" className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-            style={inputStyle(errors.name)} onFocus={focusStyle} onBlur={blurStyle(errors.name)} />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Alex Cinema"
+            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+            style={inputStyle(errors.name)}
+            onFocus={focusStyle}
+            onBlur={blurStyle(errors.name)}
+          />
           {errors.name && <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.name}</p>}
         </div>
 
@@ -85,21 +96,38 @@ export default function RegisterPage() {
 
         <div>
           <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com" className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-            style={inputStyle(errors.email)} onFocus={focusStyle} onBlur={blurStyle(errors.email)} />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+            style={inputStyle(errors.email)}
+            onFocus={focusStyle}
+            onBlur={blurStyle(errors.email)}
+          />
           {errors.email && <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.email}</p>}
         </div>
 
         <div>
           <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Password</label>
           <div className="relative">
-            <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••" className="w-full px-4 py-3 pr-12 rounded-xl text-sm outline-none transition-all"
-              style={inputStyle(errors.password)} onFocus={focusStyle} onBlur={blurStyle(errors.password)} />
-            <button type="button" onClick={() => setShowPw((p) => !p)}
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 pr-12 rounded-xl text-sm outline-none transition-all"
+              style={inputStyle(errors.password)}
+              onFocus={focusStyle}
+              onBlur={blurStyle(errors.password)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw((p) => !p)}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-              style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}>
+              style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}
+            >
               {showPw ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
             </button>
           </div>
@@ -118,10 +146,14 @@ export default function RegisterPage() {
           )}
         </div>
 
-        <motion.button type="submit" disabled={isLoading}
-          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+        <motion.button
+          type="submit"
+          disabled={isLoading}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           className="w-full py-3 rounded-xl font-bold text-sm mt-2"
-          style={{ background: 'var(--accent)', color: '#000', opacity: isLoading ? 0.7 : 1, boxShadow: '0 0 20px var(--glow)' }}>
+          style={{ background: 'var(--accent)', color: '#000', opacity: isLoading ? 0.7 : 1, boxShadow: '0 0 20px var(--glow)' }}
+        >
           {isLoading ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
