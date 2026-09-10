@@ -4,17 +4,18 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from slowapi import Limiter
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.config import settings
+from app.db.session import get_db
 from app.models import User
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -23,6 +24,16 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 JWT_ALGORITHM = settings.jwt_algorithm
 JWT_SECRET_KEY = settings.jwt_secret_key
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+
+
+def _rate_limit_key(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip()
+    return request.client.host if request.client else "anonymous"
+
+
+limiter = Limiter(key_func=_rate_limit_key, default_limits=[])
 
 
 class RegisterRequest(BaseModel):
@@ -105,7 +116,8 @@ async def _unique_username(base: str, session: AsyncSession) -> str:
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest, session: AsyncSession = Depends(get_db)) -> AuthResponse:
+@limiter.limit("5/minute")
+async def register(request: Request, payload: RegisterRequest, session: AsyncSession = Depends(get_db)) -> AuthResponse:
     email = str(payload.email).casefold()
     existing_user = await session.scalar(select(User).where(User.email == email))
     if existing_user is not None:
@@ -136,7 +148,8 @@ async def register(payload: RegisterRequest, session: AsyncSession = Depends(get
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(payload: LoginRequest, session: AsyncSession = Depends(get_db)) -> AuthResponse:
+@limiter.limit("10/minute")
+async def login(request: Request, payload: LoginRequest, session: AsyncSession = Depends(get_db)) -> AuthResponse:
     email = str(payload.email).casefold()
     user = await session.scalar(select(User).where(User.email == email, User.deleted_at.is_(None)))
     if user is None or not user.password_hash or not pwd_context.verify(payload.password, user.password_hash):
