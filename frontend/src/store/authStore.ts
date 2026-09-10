@@ -28,6 +28,7 @@ interface AuthResponse {
     location?: string | null;
     avatar_url?: string | null;
     is_private: boolean;
+    is_verified: boolean;
   };
 }
 
@@ -40,6 +41,7 @@ function mapApiUser(apiUser: AuthResponse['user']): User {
     bio: apiUser.bio || '',
     avatarColor: 'linear-gradient(135deg, #FFD700, #FF3C38)',
     favoriteGenre: '', favoriteActor: '', favoriteDirector: '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private,
+    isVerified: apiUser.is_verified,
     joinedDate: apiUser.joined_date,
     totalWatched: 0,
     totalReviews: 0,
@@ -115,7 +117,7 @@ export const useAuthStore = create<AuthState>()(
         const currentUser = get().user;
         if (!currentUser) return;
         const apiUser = await api.put<AuthResponse['user']>('/api/auth/me', { name: updates.name || currentUser.name, bio: updates.bio ?? currentUser.bio, location: updates.location ?? currentUser.location, avatar_url: updates.avatarUrl ?? currentUser.avatarUrl ?? null, is_private: updates.isPrivate ?? currentUser.isPrivate });
-        set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private } });
+        set({ user: { ...currentUser, ...updates, name: apiUser.name, bio: apiUser.bio || '', location: apiUser.location || undefined, avatarUrl: apiUser.avatar_url || undefined, isPrivate: apiUser.is_private, isVerified: apiUser.is_verified } });
       },
     }),
     { name: 'mmg-auth-v2' }
