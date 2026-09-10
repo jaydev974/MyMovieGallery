@@ -96,7 +96,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string, rememberMe = false) => {
         set({ isLoading: true });
         try {
-          const response = await api.post<AuthResponse>('/api/auth/login', { email, password }, { suppressAuthExpired: true });
+          const response = await api.post<AuthResponse>('/api/auth/login', { email, password, remember_me: rememberMe }, { suppressAuthExpired: true });
           set({ token: response.access_token, user: mapApiUser(response.user), rememberMe, isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
